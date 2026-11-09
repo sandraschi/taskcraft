@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>TaskCraft v0.1.2 — Technical Brochure &amp; Operator Handbook</title>
+  <meta name="author" content="Sandra Schipal" />
+  <style>
+    @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      background: #ffffff;
+      line-height: 1.55;
+      font-size: 10.2pt;
+      margin: 0;
+      padding: 0;
+    }
+    .cover {
+      background: linear-gradient(145deg, #090d16 0%, #0f172a 55%, #0c4a6e 100%);
+      color: #f8fafc;
+      padding: 44px 40px 48px 40px;
+      border-radius: 14px;
+      margin-bottom: 28px;
+      page-break-after: always;
+    }
+    .cover-kicker {
+      display: inline-block;
+      background: rgba(56, 189, 248, 0.18);
+      border: 1px solid #38bdf8;
+      color: #7dd3fc;
+      font-size: 9pt;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 18px;
+    }
+    .cover h1 {
+      font-size: 32pt;
+      line-height: 1.1;
+      margin: 0 0 12px 0;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+    }
+    .cover h2 {
+      font-size: 13.5pt;
+      font-weight: 400;
+      color: #bae6fd;
+      margin: 0 0 26px 0;
+    }
+    .cover-grid {
+      display: table;
+      width: 100%;
+      margin-top: 22px;
+      border-collapse: separate;
+      border-spacing: 10px;
+    }
+    .cover-stat {
+      display: table-cell;
+      width: 25%;
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid rgba(125, 211, 252, 0.35);
+      border-radius: 10px;
+      padding: 14px;
+      text-align: center;
+    }
+    .cover-stat .num {
+      font-size: 18pt;
+      font-weight: 800;
+      color: #38bdf8;
+      display: block;
+    }
+    .cover-stat .lbl {
+      font-size: 8pt;
+      color: #cbd5e1;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .cover-footer {
+      margin-top: 28px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(148, 163, 184, 0.3);
+      font-size: 9pt;
+      color: #94a3b8;
+    }
+    h2.section-title {
+      font-size: 15pt;
+      color: #0c4a6e;
+      border-bottom: 2px solid #0284c7;
+      padding-bottom: 5px;
+      margin-top: 24px;
+      margin-bottom: 10px;
+    }
+    h3 {
+      font-size: 11.5pt;
+      color: #0f172a;
+      margin-top: 16px;
+      margin-bottom: 6px;
+    }
+    p { margin: 0 0 9px 0; }
+    ul { margin: 6px 0 12px 0; padding-left: 20px; }
+    li { margin-bottom: 4px; }
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 18px 0;
+      font-size: 9pt;
+    }
+    table.data-table th {
+      background: #0f172a;
+      color: #f8fafc;
+      text-align: left;
+      padding: 6px 8px;
+      font-weight: 700;
+    }
+    table.data-table td {
+      padding: 5px 8px;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: top;
+    }
+    table.data-table tr:nth-child(even) td { background: #f8fafc; }
+    code, pre {
+      font-family: "Cascadia Code", "Consolas", "Courier New", monospace;
+      font-size: 8.8pt;
+    }
+    code {
+      background: #e2e8f0;
+      color: #0f172a;
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 11px 14px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      line-height: 1.45;
+    }
+    .page-break { page-break-before: always; }
+  </style>
+</head>
+<body>
+  <div class="cover">
+    <div class="cover-kicker">ArtCraft Fleet Technical Brochure &middot; Series #21</div>
+    <h1>TaskCraft v0.1.2</h1>
+    <h2>Local-first issue tracker for a small team, with git commit linking. One SQLite file, one binary that is both CLI and MCP server. Part of the back-office craft suite (replaces Linear / Jira / Asana for the 1-10 person case).</h2>
+
+    <svg viewBox="0 0 760 165" width="100%" height="165" xmlns="http://www.w3.org/2000/svg" style="margin: 10px 0 16px 0;">
+      <rect x="2" y="2" width="756" height="161" rx="12" fill="#0b1322" stroke="#38bdf8" stroke-width="1.5"/>
+      <rect x="24" y="22" width="200" height="120" rx="8" fill="#1e293b" stroke="#67e8f9" stroke-width="1.5"/>
+      <text x="124" y="52" fill="#67e8f9" font-size="13" font-weight="bold" text-anchor="middle">L3: taskcraft-app</text>
+      <text x="124" y="76" fill="#e2e8f0" font-size="10" text-anchor="middle">Native eframe/egui Studio</text>
+      <text x="124" y="98" fill="#94a3b8" font-size="9.5" text-anchor="middle">In-Process Core Dispatch</text>
+      <text x="124" y="118" fill="#34d399" font-size="9.5" text-anchor="middle">Zero HTTP / Port Overhead</text>
+
+      <rect x="280" y="22" width="200" height="120" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="1.5"/>
+      <text x="380" y="52" fill="#38bdf8" font-size="13" font-weight="bold" text-anchor="middle">L2: taskcraft-mcp</text>
+      <text x="380" y="76" fill="#e2e8f0" font-size="10" text-anchor="middle">CLI + Stdio MCP 2024-11-05</text>
+      <text x="380" y="98" fill="#94a3b8" font-size="9.5" text-anchor="middle">Human Verbs &amp; Agent Tools</text>
+      <text x="380" y="118" fill="#34d399" font-size="9.5" text-anchor="middle">Deterministic JSON Output</text>
+
+      <rect x="536" y="22" width="200" height="120" rx="8" fill="#0f172a" stroke="#10b981" stroke-width="2"/>
+      <text x="636" y="52" fill="#34d399" font-size="13" font-weight="bold" text-anchor="middle">L1: taskcraft-core</text>
+      <text x="636" y="76" fill="#e2e8f0" font-size="10" text-anchor="middle">Single dispatch() Engine</text>
+      <text x="636" y="98" fill="#fcd34d" font-size="9.5" text-anchor="middle">deny(unwrap/expect/panic)</text>
+      <text x="636" y="118" fill="#94a3b8" font-size="9.5" text-anchor="middle">Pre-Write Backups &amp; Guards</text>
+
+      <line x1="224" y1="82" x2="280" y2="82" stroke="#38bdf8" stroke-width="2"/>
+      <line x1="480" y1="82" x2="536" y2="82" stroke="#10b981" stroke-width="2"/>
+    </svg>
+
+    <div class="cover-grid">
+      <div class="cover-stat">
+        <span class="num">v0.1.2</span>
+        <span class="lbl">Release Version</span>
+      </div>
+      <div class="cover-stat">
+        <span class="num">3 Crates</span>
+        <span class="lbl">Workspace Tiers</span>
+      </div>
+      <div class="cover-stat">
+        <span class="num">3191</span>
+        <span class="lbl">Pure-Rust LOC</span>
+      </div>
+      <div class="cover-stat">
+        <span class="num">6-Gate</span>
+        <span class="lbl">ArtCraft Verified</span>
+      </div>
+    </div>
+
+    <div class="cover-footer">
+      <strong>Repository:</strong> <code>D:\Dev\repos\taskcraft</code> &middot;
+      <strong>Standard:</strong> <code>CRAFT_BROCHURE_STANDARD.md</code> &middot;
+      <strong>Compiled via:</strong> <code>BookCraft v0.5.0</code>
+    </div>
+  </div>
+
+  <p>Local-first issue tracker for a small team, with git commit linking. One SQLite file, one binary that is both CLI and MCP server. Part of the back-office craft suite (replaces Linear / Jira / Asana for the 1-10 person case).</p>
+<p>Status: <strong>v0.1.2, Tier 1</strong> (store + CLI + MCP, tested). No desktop window yet. Synthetic demo data only; not used on a real team yet.</p>
+<ul>
+<li>How to use it day to day: HELP.md</li>
+<li>What it is for and where it stops: docs/PRD.md</li>
+<li>Every MCP tool: docs/TOOLS.md (generated, checked by a test)</li>
+<li>Changes: CHANGELOG.md</li>
+</ul>
+<h2 class="section-title">What it does</h2>
+<ul>
+<li>Projects with a short key; issues numbered <code>KEY-n</code> per project.</li>
+<li>Status lanes: backlog, todo, in_progress, in_review, done, canceled. Priority low..urgent, story points, assignee, labels, due date, milestones with progress.</li>
+<li>Relations: <code>blocks</code> (cycle-checked), <code>relates_to</code>, <code>duplicates</code>. Starting or finishing a blocked issue is refused unless forced.</li>
+<li>Full per-issue history (who changed what, including agents, git and other craft apps).</li>
+<li><code>git-sync</code>: reads the project repo&#39;s <code>git log</code>, links commits that mention <code>KEY-n</code>, closes issues on <code>closes/fixes/resolves KEY-n</code>. Idempotent.</li>
+<li>Inbox: <code>ticket.escalated</code> from deskcraft and <code>contract.deadline</code> from contractcraft become issues automatically.</li>
+<li>Inbox: <code>capacity.changed</code> from teamcraft is stored per ISO week and shown in <code>status</code> (available team hours).</li>
+</ul>
+<h2 class="section-title">Quick start</h2>
+<pre>
+taskcraft demo-seed                  # labelled demo project BC (empty DB only)
+taskcraft board BC
+taskcraft new BC &quot;Fix CSV export&quot; --priority high --labels bug,export --estimate 2
+taskcraft link BC-4 blocks BC-5
+taskcraft move BC-5 in_progress      # refused: blocked by BC-4, BC-6
+taskcraft project create TC &quot;TaskCraft&quot; --repo D:\Dev\repos\taskcraft
+taskcraft git-sync TC --allow-path D:\Dev\repos\taskcraft
+taskcraft --json show BC-5
+</pre>
+<p>Database: <code>--db PATH</code>, else <code>$TASKCRAFT_DB</code>, else <code>%LOCALAPPDATA%\taskcraft\taskcraft.db</code>.</p>
+<h2 class="section-title">MCP</h2>
+<pre>
+{ &quot;mcpServers&quot;: { &quot;taskcraft&quot;: { &quot;command&quot;: &quot;D:/Dev/cargo-target/release/taskcraft.exe&quot;, &quot;args&quot;: [&quot;mcp&quot;, &quot;--allow-path&quot;, &quot;D:/Dev/repos&quot;] } } }
+</pre>
+<p>17 tools, all <code>task_*</code> (dotted aliases like <code>task.board</code> accepted); see docs/TOOLS.md. Agent changes are recorded with actor <code>agent</code>.</p>
+<h2 class="section-title">Build</h2>
+<pre>
+just ci             # clippy -D warnings, tests, fmt check
+just build-release
+</pre>
+<p>Needs <code>../craft-biz</code> checked out next to this repo. <code>git</code> on PATH for git sync (tests skip the git case if missing).</p>
+<h2 class="section-title">Not done (honest list)</h2>
+<ul>
+<li>No egui desktop app, no drag-and-drop board.</li>
+<li>No comments/attachments on issues; description only.</li>
+<li>No sprints/cycles, no time tracking (teamcraft owns capacity).</li>
+<li>Git sync is pull-on-demand; no hooks, no watcher. GitHub/GitLab issue import not implemented.</li>
+</ul>
+
+  <div class="page-break"></div><h2 class="section-title">Product Requirements &amp; Architecture Specification</h2><h2 class="section-title">What it is</h2>
+<p>A local-first issue tracker for a 1-10 person team (Linear / Jira / Asana replacement for the small case), with git commit linking and inputs from the other back-office craft apps. Pure Rust, ArtCraft pattern. Suite plan: <code>BACKOFFICE_CRAFT_SUITE.md</code>, section 4.2.</p>
+<h2 class="section-title">Users</h2>
+<ul>
+<li>Sandra and a small team planning work per repo or project.</li>
+<li>Agents over MCP: create and triage issues, move them, link commits. Every agent change is in the history with actor <code>agent</code>.</li>
+</ul>
+<h2 class="section-title">Jobs</h2>
+<p>1. Keep one honest list of work per project, with priorities, estimates and due dates.</p>
+<p>2. Make blockers impossible to ignore.</p>
+<p>3. Connect work to commits without a hosted service.</p>
+<p>4. Collect work that other apps discover (support escalations, contract deadlines).</p>
+<h2 class="section-title">Today (v0.1.1)</h2>
+<ul>
+<li>Projects with keys, <code>KEY-n</code> issues, statuses, priorities, points, labels, assignee, due date, milestones with progress.</li>
+<li>Relations with a cycle check on <code>blocks</code>; moving a blocked issue to in_progress / in_review / done needs <code>force</code>.</li>
+<li>Full per-issue history (agent, user, <code>git:&lt;author&gt;</code>, <code>bus:&lt;app&gt;</code>).</li>
+<li><code>git-sync</code>: read-only <code>git log</code>, mention linking, explicit closing keywords, idempotent.</li>
+<li>Inbox: <code>ticket.escalated</code> (deskcraft) and <code>contract.deadline</code> (contractcraft) become issues; <code>capacity.changed</code> (teamcraft) is shown in status. All three verified end to end.</li>
+<li>17 MCP tools (TOOLS.md, generated and test-checked), CLI with board view.</li>
+</ul>
+<h2 class="section-title">Boundaries</h2>
+<ul>
+<li>No hosted sync, no GitHub/GitLab issue sync in v1 (gitops-mcp covers GitHub).</li>
+<li>Git is read-only; taskcraft never writes to a repo.</li>
+<li>No time tracking (teamcraft) and no customer communication (deskcraft).</li>
+</ul>
+<h2 class="section-title">Gaps (honest)</h2>
+<ul>
+<li>No egui window; the board is CLI text and JSON.</li>
+<li>No comments or attachments on issues.</li>
+<li>No sprints / cycles; capacity is shown, not planned against.</li>
+<li>Git sync on demand only (no hook or watcher).</li>
+<li>Synthetic data only.</li>
+</ul>
+<h2 class="section-title">Next</h2>
+<p>1. egui app: board lanes, issue detail with history, milestone burn-up.</p>
+<p>2. Comments on issues.</p>
+<p>3. Use teamcraft capacity in milestone planning.</p>
+
+  <div class="page-break"></div><h2 class="section-title">Complete MCP Tool &amp; CLI Verb Reference</h2><p>Generated by <code>taskcraft tools --markdown</code>. Do not edit by hand: a test fails when this file</p>
+<p>is out of date. Every tool is also a CLI verb (<code>taskcraft --help</code>). Dotted names (<code>app.verb</code>) are accepted.</p>
+<table class="data-table"><thead><tr>
+<th>Tool</th>
+<th>What it does</th>
+<th>Required</th>
+<th>Optional</th>
+</tr></thead><tbody>
+<tr>
+<td><code>task_status</code></td>
+<td>Tracker status: counts (open, in progress, urgent, overdue), projects, demo flag.</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>task_project_create</code></td>
+<td>Create a project with a 2-10 char key (issues become KEY-n). Optional repo_path enables git sync.</td>
+<td><code>key</code>, <code>name</code></td>
+<td><code>repo_path</code></td>
+</tr>
+<tr>
+<td><code>task_project_list</code></td>
+<td>List projects.</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>task_issue_create</code></td>
+<td>Create an issue.</td>
+<td><code>project</code>, <code>title</code></td>
+<td><code>assignee</code>, <code>description</code>, <code>due_date</code>, <code>estimate</code>, <code>labels</code>, <code>milestone</code>, <code>priority</code>, <code>status</code></td>
+</tr>
+<tr>
+<td><code>task_issue_list</code></td>
+<td>List issues, urgent first. Finished issues are hidden unless include_finished or an explicit status filter.</td>
+<td>-</td>
+<td><code>include_finished</code>, <code>label</code>, <code>limit</code>, <code>milestone</code>, <code>priority</code>, <code>project</code>, <code>status</code>, <code>text</code></td>
+</tr>
+<tr>
+<td><code>task_issue_show</code></td>
+<td>One issue with relations, open blockers, linked commits and full history.</td>
+<td><code>issue</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>task_issue_update</code></td>
+<td>Change fields. Pass null to clear estimate/assignee/milestone/due_date. labels replaces the set.</td>
+<td><code>issue</code></td>
+<td><code>assignee</code>, <code>description</code>, <code>due_date</code>, <code>estimate</code>, <code>labels</code>, <code>milestone</code>, <code>priority</code>, <code>title</code></td>
+</tr>
+<tr>
+<td><code>task_issue_move</code></td>
+<td>Change status. Moving to in_progress/in_review/done is refused while an open issue blocks it, unless force=true.</td>
+<td><code>issue</code>, <code>status</code></td>
+<td><code>force</code></td>
+</tr>
+<tr>
+<td><code>task_relation_add</code></td>
+<td>Relate two issues. &#39;blocks&#39; edges may not form a cycle.</td>
+<td><code>source</code>, <code>kind</code>, <code>target</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>task_relation_remove</code></td>
+<td>Remove a relation.</td>
+<td><code>source</code>, <code>kind</code>, <code>target</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>task_milestone_create</code></td>
+<td>Create a milestone in a project.</td>
+<td><code>project</code>, <code>title</code></td>
+<td><code>due_date</code></td>
+</tr>
+<tr>
+<td><code>task_milestone_list</code></td>
+<td>Milestones with progress (issues and points done/total).</td>
+<td>-</td>
+<td><code>project</code></td>
+</tr>
+<tr>
+<td><code>task_milestone_close</code></td>
+<td>Close a milestone.</td>
+<td><code>project</code>, <code>title</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>task_board</code></td>
+<td>Kanban lanes for a project: cards per status, points, blocked flags.</td>
+<td><code>project</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>task_git_sync</code></td>
+<td>Read the project repo&#39;s git log, link commits mentioning KEY-n, close issues on &#39;closes/fixes/resolves KEY-n&#39;. Needs --allow-path covering the repo.</td>
+<td><code>project</code></td>
+<td><code>max</code></td>
+</tr>
+<tr>
+<td><code>task_inbox_drain</code></td>
+<td>Turn events from other craft apps (deskcraft ticket.escalated, contractcraft contract.deadline) into issues; teamcraft capacity.changed is stored per week and shown in task_status.</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>task_demo_seed</code></td>
+<td>Fill an EMPTY tracker with a labelled demo project.</td>
+<td>-</td>
+<td>-</td>
+</tr>
+</tbody></table>
+
+</body>
+</html>
