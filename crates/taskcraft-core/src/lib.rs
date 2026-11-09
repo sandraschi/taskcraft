@@ -290,7 +290,7 @@ pub fn dispatch(ctx: &mut Ctx, cmd: Command) -> Result<Value, String> {
     let t = &mut ctx.tracker;
     match cmd {
         Command::Status => Ok(
-            json!({ "app": APP, "version": VERSION, "stats": t.stats().map_err(e)?, "projects": to_json(&t.projects().map_err(e)?)? }),
+            json!({ "app": APP, "version": VERSION, "stats": t.stats().map_err(e)?, "projects": to_json(&t.projects().map_err(e)?)?, "team_capacity": team_capacity(t, 4)? }),
         ),
         Command::ProjectCreate {
             key,
@@ -440,6 +440,21 @@ pub fn inbox_drain(ctx: &mut Ctx) -> Result<Value, String> {
     let mut created = Vec::new();
     let mut rejected = Vec::new();
     for ev in events {
+        if ev.kind == "capacity.changed" {
+            match record_capacity(&ctx.tracker, &ev.payload) {
+                Ok(week) => {
+                    ctx.bus.ack(APP, &ev.id).map_err(|x| x.to_string())?;
+                    created.push(json!({ "event": ev.id, "capacity": week }));
+                }
+                Err(err) => {
+                    ctx.bus
+                        .reject(APP, &ev.id, &err)
+                        .map_err(|x| x.to_string())?;
+                    rejected.push(json!({ "event": ev.id, "error": err }));
+                }
+            }
+            continue;
+        }
         let result = issue_from_event(&mut ctx.tracker, &ev.kind, &ev.source, &ev.payload);
         match result {
             Ok(key) => {
@@ -455,6 +470,36 @@ pub fn inbox_drain(ctx: &mut Ctx) -> Result<Value, String> {
         }
     }
     Ok(json!({ "created": created, "rejected": rejected }))
+}
+
+/// teamcraft's weekly capacity, kept per ISO week (latest event wins).
+fn record_capacity(t: &Tracker, p: &Value) -> Result<String, String> {
+    let week = s(p, "week")?;
+    let ok = week.len() == 8
+        && week.as_bytes().get(4) == Some(&b'-')
+        && week.as_bytes().get(5) == Some(&b'W');
+    if !ok {
+        return Err(format!("bad week {week:?}"));
+    }
+    let total = p
+        .get("total_minutes")
+        .and_then(Value::as_i64)
+        .ok_or("capacity event without total_minutes")?;
+    let slim = json!({ "week": week, "total": p.get("total"), "total_minutes": total, "employees": p.get("employees") });
+    t.set_meta(&format!("team_capacity:{week}"), &slim.to_string())
+        .map_err(e)?;
+    Ok(week.to_string())
+}
+
+/// Most recent capacity weeks received from teamcraft.
+pub fn team_capacity(t: &Tracker, last: usize) -> Result<Vec<Value>, String> {
+    let rows = t.meta_prefix("team_capacity:").map_err(e)?;
+    Ok(rows
+        .iter()
+        .rev()
+        .take(last)
+        .filter_map(|(_, v)| serde_json::from_str::<Value>(v).ok())
+        .collect())
 }
 
 fn default_project(t: &Tracker, p: &Value) -> Result<String, String> {
@@ -687,7 +732,7 @@ pub fn tools() -> Vec<Value> {
         tool("task_milestone_close", "Close a milestone.", json!({ "project": {"type":"string"}, "title": {"type":"string"} }), &["project", "title"]),
         tool("task_board", "Kanban lanes for a project: cards per status, points, blocked flags.", json!({ "project": {"type":"string"} }), &["project"]),
         tool("task_git_sync", "Read the project repo's git log, link commits mentioning KEY-n, close issues on 'closes/fixes/resolves KEY-n'. Needs --allow-path covering the repo.", json!({ "project": {"type":"string"}, "max": {"type":"integer"} }), &["project"]),
-        tool("task_inbox_drain", "Turn events from other craft apps (deskcraft ticket.escalated, contractcraft contract.deadline) into issues.", json!({}), &[]),
+        tool("task_inbox_drain", "Turn events from other craft apps (deskcraft ticket.escalated, contractcraft contract.deadline) into issues; teamcraft capacity.changed is stored per week and shown in task_status.", json!({}), &[]),
         tool("task_demo_seed", "Fill an EMPTY tracker with a labelled demo project.", json!({}), &[]),
     ]
 }

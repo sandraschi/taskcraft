@@ -415,6 +415,17 @@ impl Tracker {
         Ok(v.as_deref() == Some("1"))
     }
 
+    /// Meta entries whose key starts with `prefix`, newest key last.
+    pub fn meta_prefix(&self, prefix: &str) -> Result<Vec<(String, String)>> {
+        let mut st = self.conn.prepare(
+            "SELECT key, value FROM meta WHERE substr(key, 1, length(?1)) = ?1 ORDER BY key",
+        )?;
+        let rows = st
+            .query_map(params![prefix], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows)
+    }
+
     // ---------- projects ----------
 
     pub fn create_project(

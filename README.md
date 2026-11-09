@@ -12,6 +12,7 @@ Status: **v0.1.0, Tier 1** (store + CLI + MCP, tested). No desktop window yet. S
 - Full per-issue history (who changed what, including agents, git and other craft apps).
 - `git-sync`: reads the project repo's `git log`, links commits that mention `KEY-n`, closes issues on `closes/fixes/resolves KEY-n`. Idempotent.
 - Inbox: `ticket.escalated` from deskcraft and `contract.deadline` from contractcraft become issues automatically.
+- Inbox: `capacity.changed` from teamcraft is stored per ISO week and shown in `status` (available team hours).
 
 ## Quick start
 
@@ -51,4 +52,3 @@ Needs `../craft-biz` checked out next to this repo. `git` on PATH for git sync (
 - No comments/attachments on issues; description only.
 - No sprints/cycles, no time tracking (teamcraft owns capacity).
 - Git sync is pull-on-demand; no hooks, no watcher. GitHub/GitLab issue import not implemented.
-- `capacity.changed` from teamcraft is rejected by the inbox until teamcraft exists.

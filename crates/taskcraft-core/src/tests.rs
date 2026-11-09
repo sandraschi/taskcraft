@@ -98,9 +98,26 @@ fn inbox_creates_issues_from_other_apps() {
     c.bus
         .emit("teamcraft", APP, "capacity.changed", json!({}))
         .unwrap();
+    c.bus
+        .emit(
+            "teamcraft",
+            APP,
+            "capacity.changed",
+            json!({ "week": "2026-W46", "total": "32:00", "total_minutes": 1920, "employees": [] }),
+        )
+        .unwrap();
+    c.bus
+        .emit("gaincraft", APP, "signal.negative", json!({}))
+        .unwrap();
     let r = call(&mut c, "task_inbox_drain", json!({})).unwrap();
-    assert_eq!(r["created"].as_array().map(Vec::len), Some(2));
-    assert_eq!(r["rejected"].as_array().map(Vec::len), Some(1));
+    assert_eq!(r["created"].as_array().map(Vec::len), Some(3), "{r}");
+    assert_eq!(
+        r["rejected"].as_array().map(Vec::len),
+        Some(2),
+        "empty capacity + unknown kind"
+    );
+    let st = call(&mut c, "task_status", json!({})).unwrap();
+    assert_eq!(st["team_capacity"][0]["total"], "32:00");
     let i = call(&mut c, "task_issue_show", json!({ "issue": "OPS-2" })).unwrap();
     assert_eq!(i["due_date"], "2027-09-30");
     assert_eq!(i["history"][0]["actor"], "bus:contractcraft");
