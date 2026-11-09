@@ -1,0 +1,21 @@
+[package]
+name = "taskcraft-mcp"
+description = "taskcraft L2: one binary for the CLI (every verb takes --json) and the MCP stdio server."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "taskcraft"
+path = "src/main.rs"
+
+[dependencies]
+taskcraft-core = { path = "../taskcraft-core" }
+taskcraft-store = { path = "../taskcraft-store" }
+craft-biz.workspace = true
+serde_json.workspace = true
+clap.workspace = true
+
+[lints]
+workspace = true

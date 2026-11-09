@@ -1,0 +1,54 @@
+# taskcraft
+
+Local-first issue tracker for a small team, with git commit linking. One SQLite file, one binary that is both CLI and MCP server. Part of the back-office craft suite (replaces Linear / Jira / Asana for the 1-10 person case).
+
+Status: **v0.1.0, Tier 1** (store + CLI + MCP, tested). No desktop window yet. Synthetic demo data only; not used on a real team yet.
+
+## What it does
+
+- Projects with a short key; issues numbered `KEY-n` per project.
+- Status lanes: backlog, todo, in_progress, in_review, done, canceled. Priority low..urgent, story points, assignee, labels, due date, milestones with progress.
+- Relations: `blocks` (cycle-checked), `relates_to`, `duplicates`. Starting or finishing a blocked issue is refused unless forced.
+- Full per-issue history (who changed what, including agents, git and other craft apps).
+- `git-sync`: reads the project repo's `git log`, links commits that mention `KEY-n`, closes issues on `closes/fixes/resolves KEY-n`. Idempotent.
+- Inbox: `ticket.escalated` from deskcraft and `contract.deadline` from contractcraft become issues automatically.
+
+## Quick start
+
+```powershell
+taskcraft demo-seed                  # labelled demo project BC (empty DB only)
+taskcraft board BC
+taskcraft new BC "Fix CSV export" --priority high --labels bug,export --estimate 2
+taskcraft link BC-4 blocks BC-5
+taskcraft move BC-5 in_progress      # refused: blocked by BC-4, BC-6
+taskcraft project create TC "TaskCraft" --repo D:\Dev\repos\taskcraft
+taskcraft git-sync TC --allow-path D:\Dev\repos\taskcraft
+taskcraft --json show BC-5
+```
+
+Database: `--db PATH`, else `$TASKCRAFT_DB`, else `%LOCALAPPDATA%\taskcraft\taskcraft.db`.
+
+## MCP
+
+```json
+{ "mcpServers": { "taskcraft": { "command": "D:/Dev/cargo-target/release/taskcraft.exe", "args": ["mcp", "--allow-path", "D:/Dev/repos"] } } }
+```
+
+17 tools, all `task_*` (dotted aliases like `task.board` accepted): status, project create/list, issue create/list/show/update/move, relation add/remove, milestone create/list/close, board, git_sync, inbox_drain, demo_seed. Agent changes are recorded with actor `agent`.
+
+## Build
+
+```powershell
+just ci             # clippy -D warnings, tests, fmt check
+just build-release
+```
+
+Needs `../craft-biz` checked out next to this repo. `git` on PATH for git sync (tests skip the git case if missing).
+
+## Not done (honest list)
+
+- No egui desktop app, no drag-and-drop board.
+- No comments/attachments on issues; description only.
+- No sprints/cycles, no time tracking (teamcraft owns capacity).
+- Git sync is pull-on-demand; no hooks, no watcher. GitHub/GitLab issue import not implemented.
+- `capacity.changed` from teamcraft is rejected by the inbox until teamcraft exists.

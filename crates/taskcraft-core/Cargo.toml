@@ -1,0 +1,17 @@
+[package]
+name = "taskcraft-core"
+description = "taskcraft L1: command bus, git log sync, bus inbox, demo seed."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+taskcraft-store = { path = "../taskcraft-store" }
+craft-biz.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+
+[lints]
+workspace = true
