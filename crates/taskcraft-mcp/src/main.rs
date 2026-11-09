@@ -14,8 +14,17 @@ use std::process::ExitCode;
 use taskcraft_core::{dispatch, tools, Command, Confinement, Ctx, APP, VERSION};
 use taskcraft_store::Tracker;
 
+const AFTER_HELP: &str = "Typical day:
+  taskcraft board BC
+  taskcraft new BC \"Fix CSV export\" --priority high --labels bug --estimate 2
+  taskcraft link BC-4 blocks BC-5
+  taskcraft move BC-5 in_progress              # refused while blocked; --force overrides
+  taskcraft git-sync BC --allow-path D:\\Dev\\repos\\buchcraft
+  taskcraft inbox-drain                        # escalations, contract deadlines, capacity
+See HELP.md for workflows and docs/TOOLS.md for every MCP tool.";
+
 #[derive(Parser)]
-#[command(
+#[command(after_help = AFTER_HELP,
     name = "taskcraft",
     version,
     about = "Local-first issue tracker with git-commit linking. CLI + MCP."
@@ -152,8 +161,11 @@ enum Cmd {
     InboxDrain,
     /// Fill an empty tracker with the labelled demo project.
     DemoSeed,
-    /// Print the MCP tool catalog.
-    Tools,
+    /// Print the MCP tool catalog (JSON, or markdown for docs/TOOLS.md).
+    Tools {
+        #[arg(long)]
+        markdown: bool,
+    },
     /// Run the MCP stdio server.
     Mcp,
 }
@@ -376,7 +388,7 @@ fn to_tool(cmd: Cmd) -> Result<(&'static str, Value), String> {
         }
         Cmd::InboxDrain => ("task_inbox_drain", json!({})),
         Cmd::DemoSeed => ("task_demo_seed", json!({})),
-        Cmd::Tools | Cmd::Mcp => return Err("not a tool verb".into()),
+        Cmd::Tools { .. } | Cmd::Mcp => return Err("not a tool verb".into()),
     })
 }
 
@@ -485,7 +497,11 @@ fn render(v: &Value) -> String {
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
-    if matches!(cli.cmd, Cmd::Tools) {
+    if let Cmd::Tools { markdown } = cli.cmd {
+        if markdown {
+            print!("{}", craft_biz::mcp::tools_markdown(APP, &tools()));
+            return ExitCode::SUCCESS;
+        }
         println!(
             "{}",
             serde_json::to_string_pretty(&tools()).unwrap_or_default()
@@ -565,6 +581,15 @@ fn main() -> ExitCode {
 mod tests {
     use super::*;
     use craft_biz::mcp::handle_line;
+
+    #[test]
+    fn tools_doc_is_current() {
+        let committed = include_str!("../../../docs/TOOLS.md");
+        assert!(
+            craft_biz::mcp::docs_in_sync(committed, &craft_biz::mcp::tools_markdown(APP, &tools())),
+            "docs/TOOLS.md is stale: run `just docs`"
+        );
+    }
 
     fn host() -> Host {
         let tracker = Tracker::open_in_memory().unwrap();

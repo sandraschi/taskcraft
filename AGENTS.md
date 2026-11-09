@@ -21,6 +21,15 @@ Local-first issue tracker craft app (Linear/Jira replacement for a small team). 
 - Git sync links a commit to an issue at most once; status changes only on the first sighting, so re-syncing never reopens or re-closes anything.
 - Only explicit closing phrases (closes/fixes/resolves KEY-n) close issues. A bare mention only links.
 
+## Docs (keep current in the same commit)
+
+- `README.md`: what it does, quick start, MCP config, build.
+- `HELP.md`: task-oriented how-to; update when a verb or workflow changes.
+- `docs/PRD.md`: purpose, boundaries, honest gaps, next steps; update "Today" and "Gaps" with every release.
+- `docs/TOOLS.md`: generated. After any tool change run `just docs`; the `tools_doc_is_current` test fails otherwise.
+- `CHANGELOG.md`: one entry per change set.
+- CLI help: `about`, argument doc comments and `AFTER_HELP` in the mcp crate's `main.rs`.
+
 ## Rules
 
 - Zero-panic: unwrap/expect/panic/todo/unimplemented denied outside tests.
@@ -44,4 +53,4 @@ Local-first issue tracker craft app (Linear/Jira replacement for a small team). 
 3. `cargo fmt --all --check`
 4. MCP probe: `initialize` -> `tools/list` -> `tools/call`, stdout pure JSON
 5. `Cargo.lock` committed, clean `git status`
-6. `CHANGELOG.md` line
+6. `CHANGELOG.md` entry; README / HELP / PRD updated if behaviour changed

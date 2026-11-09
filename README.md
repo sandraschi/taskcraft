@@ -2,7 +2,12 @@
 
 Local-first issue tracker for a small team, with git commit linking. One SQLite file, one binary that is both CLI and MCP server. Part of the back-office craft suite (replaces Linear / Jira / Asana for the 1-10 person case).
 
-Status: **v0.1.0, Tier 1** (store + CLI + MCP, tested). No desktop window yet. Synthetic demo data only; not used on a real team yet.
+Status: **v0.1.2, Tier 1** (store + CLI + MCP, tested). No desktop window yet. Synthetic demo data only; not used on a real team yet.
+
+- How to use it day to day: [HELP.md](HELP.md)
+- What it is for and where it stops: [docs/PRD.md](docs/PRD.md)
+- Every MCP tool: [docs/TOOLS.md](docs/TOOLS.md) (generated, checked by a test)
+- Changes: [CHANGELOG.md](CHANGELOG.md)
 
 ## What it does
 
@@ -35,7 +40,7 @@ Database: `--db PATH`, else `$TASKCRAFT_DB`, else `%LOCALAPPDATA%\taskcraft\task
 { "mcpServers": { "taskcraft": { "command": "D:/Dev/cargo-target/release/taskcraft.exe", "args": ["mcp", "--allow-path", "D:/Dev/repos"] } } }
 ```
 
-17 tools, all `task_*` (dotted aliases like `task.board` accepted): status, project create/list, issue create/list/show/update/move, relation add/remove, milestone create/list/close, board, git_sync, inbox_drain, demo_seed. Agent changes are recorded with actor `agent`.
+17 tools, all `task_*` (dotted aliases like `task.board` accepted); see [docs/TOOLS.md](docs/TOOLS.md). Agent changes are recorded with actor `agent`.
 
 ## Build
 
