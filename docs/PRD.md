@@ -16,8 +16,9 @@ A local-first issue tracker for a 1-10 person team (Linear / Jira / Asana replac
 3. Connect work to commits without a hosted service.
 4. Collect work that other apps discover (support escalations, contract deadlines).
 
-## Today (v0.1.1)
+## Today (v0.1.2)
 
+- egui desktop workstation (`taskcraft-app`): interactive drag-and-drop Kanban board with workflow rule enforcement, swimlanes (priority, assignee, none), filter toolbar, issues table, full interactive inspector drawer with in-place editing, relations and blockers management, milestone burn-up cards, git commit sync history, Ctrl+K command palette, and cross-app bus signals dock.
 - Projects with keys, `KEY-n` issues, statuses, priorities, points, labels, assignee, due date, milestones with progress.
 - Relations with a cycle check on `blocks`; moving a blocked issue to in_progress / in_review / done needs `force`.
 - Full per-issue history (agent, user, `git:<author>`, `bus:<app>`).
@@ -33,7 +34,6 @@ A local-first issue tracker for a 1-10 person team (Linear / Jira / Asana replac
 
 ## Gaps (honest)
 
-- No egui window; the board is CLI text and JSON.
 - No comments or attachments on issues.
 - No sprints / cycles; capacity is shown, not planned against.
 - Git sync on demand only (no hook or watcher).
@@ -41,6 +41,5 @@ A local-first issue tracker for a 1-10 person team (Linear / Jira / Asana replac
 
 ## Next
 
-1. egui app: board lanes, issue detail with history, milestone burn-up.
-2. Comments on issues.
-3. Use teamcraft capacity in milestone planning.
+1. Comments on issues.
+2. Use teamcraft capacity in milestone planning.

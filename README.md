@@ -2,7 +2,7 @@
 
 Local-first issue tracker for a small team, with git commit linking. One SQLite file, one binary that is both CLI and MCP server. Part of the back-office craft suite (replaces Linear / Jira / Asana for the 1-10 person case).
 
-Status: **v0.1.2, Tier 1** (store + CLI + MCP, tested). No desktop window yet. Synthetic demo data only; not used on a real team yet.
+Status: **v0.1.2, Tier 1 + L3 Desktop Workstation** (store + CLI + MCP + egui app, tested). Synthetic demo data available via `demo-seed` or desktop top bar.
 
 - How to use it day to day: [HELP.md](HELP.md)
 - What it is for and where it stops: [docs/PRD.md](docs/PRD.md)
@@ -53,7 +53,6 @@ Needs `../craft-biz` checked out next to this repo. `git` on PATH for git sync (
 
 ## Not done (honest list)
 
-- No egui desktop app, no drag-and-drop board.
-- No comments/attachments on issues; description only.
+- No comments/attachments on issues; description and audit log only.
 - No sprints/cycles, no time tracking (teamcraft owns capacity).
 - Git sync is pull-on-demand; no hooks, no watcher. GitHub/GitLab issue import not implemented.

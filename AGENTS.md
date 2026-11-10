@@ -9,7 +9,7 @@ Local-first issue tracker craft app (Linear/Jira replacement for a small team). 
 - `crates/taskcraft-store` (L1): projects, issues (KEY-n numbering per project), milestones, relations, commit links, event history on SQLite WAL. All workflow invariants live here.
 - `crates/taskcraft-core` (L1): `Command` bus, `dispatch`, MCP catalog, git log sync (`gitsync.rs`), bus inbox, demo seed.
 - `crates/taskcraft-mcp` (L2): `taskcraft` binary. CLI verbs map onto the same tool calls as MCP.
-- No L3 (egui) yet. Planned: board, issue detail, milestone burn-up.
+- `crates/taskcraft-app` (L3): eframe/egui desktop workstation with Kanban board, issues table, interactive inspector drawer, relations DAG management, milestone burn-up, git commit sync, Ctrl+K command palette, and cross-app bus signals.
 - Shared kernel: `../craft-biz` (bus, MCP loop, confinement, date parsing).
 
 ## Workflow invariants (never weaken)

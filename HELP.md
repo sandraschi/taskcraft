@@ -58,6 +58,22 @@ taskcraft inbox-drain
 
 Issues go into the project named in the event, else the first project.
 
+## Desktop workstation (egui)
+
+Launch via `start.ps1` or `start.bat`:
+
+```powershell
+.\start.ps1                     # Launches native desktop app
+.\start.ps1 -Smoke              # Verifies startup and exits
+.\start.ps1 -Mcp                # Starts TaskCraft MCP server on stdio
+```
+
+Features:
+- **Kanban Board**: Drag and drop cards, live blocker rules, column `+` button to create issues, priority/assignee swimlanes, and live filter toolbar.
+- **Interactive Inspector**: Click or double-click any card to view and edit title, description, status, priority, assignee, estimate, due date, milestones, labels, blockers/relations, and git commits in place.
+- **Views**: Quick navigation between Kanban Board, Issues Table (sortable with CSV export), Milestones & Burn-up, Git Commits & Sync, and Activity Log.
+- **Palette**: Press `Ctrl+K` to open the command palette and run any tool via auto-generated forms.
+
 ## Troubleshooting
 
 - **"blocked: ..."**: finish or unlink the blocker, or pass `--force`.
