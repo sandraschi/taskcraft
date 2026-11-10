@@ -12,7 +12,7 @@ param(
 $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $AppCrate = "taskcraft-app"
-$AppBin = "taskcraft-app"
+$AppBin = "taskcraft"
 $McpCrate = "taskcraft-mcp"
 
 $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"

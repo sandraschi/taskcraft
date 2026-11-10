@@ -6,7 +6,7 @@ license.workspace = true
 authors.workspace = true
 
 [[bin]]
-name = "taskcraft-app"
+name = "taskcraft"
 path = "src/main.rs"
 
 [dependencies]
