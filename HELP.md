@@ -1,5 +1,7 @@
 # taskcraft help
 
+Local-first replacement for Linear, Jira, Asana, and GitHub Projects for small teams (1-10 people). Combines a native egui 0.37 desktop workstation, FastMCP stdio server, and CLI on top of an embedded SQLite database.
+
 Task-oriented guide. Every command also exists as an MCP tool ([docs/TOOLS.md](docs/TOOLS.md)); add `--json` for machine-readable output; `taskcraft <command> --help` lists all options.
 
 ## Projects and issues

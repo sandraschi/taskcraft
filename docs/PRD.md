@@ -4,6 +4,11 @@
 
 A local-first issue tracker for a 1-10 person team (Linear / Jira / Asana replacement for the small case), with git commit linking and inputs from the other back-office craft apps. Pure Rust, ArtCraft pattern. Suite plan: `BACKOFFICE_CRAFT_SUITE.md`, section 4.2.
 
+## What this replaces
+
+- **Linear / Jira / Asana / ClickUp**: Replaces multi-tenant cloud SaaS trackers with a local-first SQLite WAL database, removing vendor subscriptions, latency, and cloud lock-in.
+- **GitHub Projects / Trello**: Replaces web-based Kanban boards with a native 60fps desktop GUI (`taskcraft-app`), cycle-checked blocker DAGs, and automatic local `git log` commit linking without cloud webhook tokens.
+
 ## Users
 
 - Sandra and a small team planning work per repo or project.
@@ -16,7 +21,7 @@ A local-first issue tracker for a 1-10 person team (Linear / Jira / Asana replac
 3. Connect work to commits without a hosted service.
 4. Collect work that other apps discover (support escalations, contract deadlines).
 
-## Today (v0.1.2)
+## Today (v0.1.3)
 
 - egui desktop workstation (`taskcraft-app`): interactive drag-and-drop Kanban board with workflow rule enforcement, swimlanes (priority, assignee, none), filter toolbar, issues table, full interactive inspector drawer with in-place editing, relations and blockers management, milestone burn-up cards, git commit sync history, Ctrl+K command palette, and cross-app bus signals dock.
 - Projects with keys, `KEY-n` issues, statuses, priorities, points, labels, assignee, due date, milestones with progress.

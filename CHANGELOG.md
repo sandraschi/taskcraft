@@ -2,6 +2,7 @@
 
 ## 0.1.3 - 2026-11-10
 
+- Replaces Linear, Jira, Asana, and GitHub Projects: Local-first single SQLite WAL database, zero SaaS subscriptions or vendor lock-in, automatic read-only git log commit linking, and hard DAG blocker enforcement.
 - Desktop App (taskcraft-app): Complete native egui workstation upgrade.
   - Interactive Issue Inspector side drawer: in-place title/description editing, status switcher with dependency blocker warnings, priority and assignee pills, due date helpers, milestone selector, interactive label chips with instant removal/addition.
   - Relations & dependencies DAG management: visual blocker warnings with clickable issue links, instant relation unlinking, and add-relation form with cycle detection.

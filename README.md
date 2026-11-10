@@ -2,12 +2,29 @@
 
 Local-first issue tracker for a small team, with git commit linking. One SQLite file, one binary that is both CLI and MCP server. Part of the back-office craft suite (replaces Linear / Jira / Asana for the 1-10 person case).
 
-Status: **v0.1.2, Tier 1 + L3 Desktop Workstation** (store + CLI + MCP + egui app, tested). Synthetic demo data available via `demo-seed` or desktop top bar.
+Status: **v0.1.3, Tier 1 + L3 Desktop Workstation** (store + CLI + MCP + egui app, tested). Synthetic demo data available via `demo-seed` or desktop top bar.
 
 - How to use it day to day: [HELP.md](HELP.md)
 - What it is for and where it stops: [docs/PRD.md](docs/PRD.md)
 - Every MCP tool: [docs/TOOLS.md](docs/TOOLS.md) (generated, checked by a test)
+- Handover and roadmap: [HANDOVER.md](HANDOVER.md)
 - Changes: [CHANGELOG.md](CHANGELOG.md)
+
+## What this replaces
+
+TaskCraft is a local-first, zero-cloud-lock-in replacement for hosted issue trackers and project management tools for small sovereign engineering teams (1-10 people):
+
+- **Replaces**:
+  - **Linear / Jira / Asana**: Cloud-hosted task tracking tools with vendor lock-in, seat fees, API rate limits, and latency.
+  - **Trello / ClickUp**: Cloud Kanban boards lacking deep local git commit linkage and cycle-checked dependency DAGs.
+  - **GitHub Projects**: Hosted issue trackers that require internet connectivity, webhook infrastructure, and personal access tokens.
+
+- **Why it replaces them**:
+  - **Single SQLite WAL file**: All data lives locally in `%LOCALAPPDATA%\taskcraft\taskcraft.db`. No monthly subscriptions, no downtime, and sub-millisecond queries.
+  - **Triple-surface architecture**: Instant 60fps native desktop workstation (`taskcraft-app`), FastMCP stdio server (`taskcraft mcp`) for AI coding agents, and terminal CLI (`taskcraft`).
+  - **Git-commit linking built in**: Subprocess git log scanner (`git -C <repo> log`) automatically and idempotently detects commit mentions and closes issues on explicit closing keywords (`closes KEY-12`, `fixes KEY-12`).
+  - **Strict dependency DAG**: Cycle-checked `blocks` relations. Issues cannot move to in_progress or done while blocked unless explicitly forced and audited in the event history.
+  - **Fleet bus integration**: Receives tickets escalated from `deskcraft`, contract deadlines from `contractcraft`, and team capacity changes from `teamcraft`.
 
 ## What it does
 
@@ -20,6 +37,16 @@ Status: **v0.1.2, Tier 1 + L3 Desktop Workstation** (store + CLI + MCP + egui ap
 - Inbox: `capacity.changed` from teamcraft is stored per ISO week and shown in `status` (available team hours).
 
 ## Quick start
+
+### Desktop Workstation (egui)
+
+```powershell
+.\start.ps1                          # Launches native desktop app
+.\start.ps1 -Smoke                   # Verifies startup and exits
+.\start.ps1 -Mcp                     # Starts MCP server on stdio
+```
+
+### CLI
 
 ```powershell
 taskcraft demo-seed                  # labelled demo project BC (empty DB only)
