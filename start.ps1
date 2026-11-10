@@ -1,7 +1,61 @@
+#Requires -Version 5.1
+<#
+.SYNOPSIS
+  TaskCraft launcher: desktop egui app (L3), CLI/MCP, or smoke check.
+#>
+param(
+    [switch]$Mcp,
+    [switch]$Smoke,
+    [switch]$Build
+)
+
 $ErrorActionPreference = "Stop"
-Set-Location $PSScriptRoot
-if ($args.Count -eq 0) {
-    & "C:\Users\sandr\.cargo\bin\cargo.exe" run -p taskcraft-mcp -- --help
+$RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$AppCrate = "taskcraft-app"
+$AppBin = "taskcraft-app"
+$McpCrate = "taskcraft-mcp"
+
+$env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
+if ($null -eq (Get-Command cargo -ErrorAction SilentlyContinue)) {
+    Write-Host "ERROR: cargo not found. Install Rust: https://rustup.rs" -ForegroundColor Red
+    exit 1
+}
+
+Set-Location -LiteralPath $RepoRoot
+
+if ($Mcp) {
+    Write-Host "Starting TaskCraft MCP server on stdio..." -ForegroundColor Cyan
+    & "$env:USERPROFILE\.cargo\bin\cargo.exe" run -p $McpCrate -- mcp
+    exit $LASTEXITCODE
+}
+
+if ($Smoke) {
+    & "$env:USERPROFILE\.cargo\bin\cargo.exe" run -p $AppCrate -- --smoke
+    exit $LASTEXITCODE
+}
+
+if ($Build) {
+    & "$env:USERPROFILE\.cargo\bin\cargo.exe" build -p $AppCrate
+    exit $LASTEXITCODE
+}
+
+# Extra check for --smoke passed positionally in args
+if ($args -contains "--smoke") {
+    & "$env:USERPROFILE\.cargo\bin\cargo.exe" run -p $AppCrate -- --smoke
+    exit $LASTEXITCODE
+}
+
+# Default: Launch native desktop app
+$releaseExe = Join-Path $RepoRoot "target\release\$AppBin.exe"
+$debugExe = Join-Path $RepoRoot "target\debug\$AppBin.exe"
+
+if (Test-Path $releaseExe) {
+    & $releaseExe @args
+    exit $LASTEXITCODE
+} elseif (Test-Path $debugExe) {
+    & $debugExe @args
+    exit $LASTEXITCODE
 } else {
-    & "C:\Users\sandr\.cargo\bin\cargo.exe" run -p taskcraft-mcp -- @args
+    & "$env:USERPROFILE\.cargo\bin\cargo.exe" run -p $AppCrate -- @args
+    exit $LASTEXITCODE
 }
