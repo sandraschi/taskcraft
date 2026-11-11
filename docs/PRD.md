@@ -48,3 +48,21 @@ A local-first issue tracker for a 1-10 person team (Linear / Jira / Asana replac
 
 1. Comments on issues.
 2. Use teamcraft capacity in milestone planning.
+
+## UI/UX Architecture & Menu Bar Standard
+
+In accordance with [`CRAFT_MENU_BAR_STANDARD.md`](../../mcp-central-docs/standards/rust-artcraft/CRAFT_MENU_BAR_STANDARD.md):
+- **Pattern 2 (Viewport-Centric Craft Workstation):** Persistent Kanban board / issue grid viewport with swimlanes and collapsible detail drawer. Top quick button row acts as accelerators into the `View` menu. To add a new issue view or backlog board:
+  1. Register a visibility toggle in the `View` or `Window` menu.
+  2. Add an entry in the sidebar Project / Status toolbox.
+  3. Wire the action directly into the universal `Command::dispatch` bus.
+- **Top Menu Bar Hierarchy:**
+  - `File`: New Project (`Ctrl+N`), Open Project (`Ctrl+O`), Open Recent ▸, Save (`Ctrl+S`), Export Issues / CSV (`Ctrl+E`), Close Project (`Ctrl+W`), Quit (`Ctrl+Q`).
+  - `Edit`: Undo (`Ctrl+Z`), Redo (`Ctrl+Y`), Cut, Copy, Paste, Select All, Preferences (`Ctrl+,`).
+  - `View`: Kanban Board, Issues Table, Backlog List, Milestone Burn-up, Git Sync History, Theme (`Dark`/`Light`).
+  - `Insert`: Add Issue (`C` / `Ctrl+Shift+I`), Add Milestone, Add Issue Dependency (`Blocks`), Link Git Commit.
+  - `Modify`: Move Issue Status, Change Assignee, Update Priority / Points, Edit Labels.
+  - `Commands`: Run Git Log Sync, Drain Escalations Inbox, Check Blocker Cycles, Audit Capacity.
+  - `Window`: Reset Layout, Board Viewport, Issue Inspector Drawer, Cross-App Bus Dock.
+  - `Help` (Mandatory 5-Dialog Suite): `Command Palette...` (`Ctrl+K`), `Keyboard Shortcuts...` (`F1`), `Project Files & Docs...`, `Licenses & Notices...`, `About TaskCraft`.
+- **Behavioral Mechanics:** Smooth `switch_on_hover` between top-level menus, zero-unsafe immediate-mode rendering, and headless `--smoke` parity.
