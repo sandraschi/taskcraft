@@ -1,0 +1,101 @@
+{
+  "manifest_version": "0.2",
+  "name": "taskcraft",
+  "display_name": "TaskCraft",
+  "version": "__VERSION__",
+  "description": "taskcraft L2: one binary for the CLI (every verb takes --json) and the MCP stdio server.",
+  "author": {
+    "name": "Sandra Schipal",
+    "url": "https://github.com/sandraschi"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sandraschi/taskcraft"
+  },
+  "license": "MIT OR Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "taskcraft-cli.exe",
+    "mcp_config": {
+      "command": "${__dirname}/taskcraft-cli.exe",
+      "args": [
+        "mcp"
+      ]
+    }
+  },
+  "compatibility": {
+    "platforms": [
+      "win32"
+    ]
+  },
+  "tools": [
+    {
+      "name": "task_status",
+      "description": "Tracker status: counts (open, in progress, urgent, overdue), projects, demo flag."
+    },
+    {
+      "name": "task_project_create",
+      "description": "Create a project with a 2-10 char key (issues become KEY-n). Optional repo_path enables git sync."
+    },
+    {
+      "name": "task_project_list",
+      "description": "List projects."
+    },
+    {
+      "name": "task_issue_create",
+      "description": "Create an issue."
+    },
+    {
+      "name": "task_issue_list",
+      "description": "List issues, urgent first. Finished issues are hidden unless include_finished or an explicit status filter."
+    },
+    {
+      "name": "task_issue_show",
+      "description": "One issue with relations, open blockers, linked commits and full history."
+    },
+    {
+      "name": "task_issue_update",
+      "description": "Change fields. Pass null to clear estimate/assignee/milestone/due_date. labels replaces the set."
+    },
+    {
+      "name": "task_issue_move",
+      "description": "Change status. Moving to in_progress/in_review/done is refused while an open issue blocks it, unless force=true."
+    },
+    {
+      "name": "task_relation_add",
+      "description": "Relate two issues. 'blocks' edges may not form a cycle."
+    },
+    {
+      "name": "task_relation_remove",
+      "description": "Remove a relation."
+    },
+    {
+      "name": "task_milestone_create",
+      "description": "Create a milestone in a project."
+    },
+    {
+      "name": "task_milestone_list",
+      "description": "Milestones with progress (issues and points done/total)."
+    },
+    {
+      "name": "task_milestone_close",
+      "description": "Close a milestone."
+    },
+    {
+      "name": "task_board",
+      "description": "Kanban lanes for a project: cards per status, points, blocked flags."
+    },
+    {
+      "name": "task_git_sync",
+      "description": "Read the project repo's git log, link commits mentioning KEY-n, close issues on 'closes/fixes/resolves KEY-n'. Needs --allow-path covering the repo."
+    },
+    {
+      "name": "task_inbox_drain",
+      "description": "Turn events from other craft apps (deskcraft ticket.escalated, contractcraft contract.deadline) into issues; teamcraft capacity.changed is stored per week and shown in task_status."
+    },
+    {
+      "name": "task_demo_seed",
+      "description": "Fill an EMPTY tracker with a labelled demo project."
+    }
+  ]
+}
