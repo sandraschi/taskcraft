@@ -2817,7 +2817,7 @@ dependencies = [
 
 [[package]]
 name = "taskcraft-app"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "chrono",
  "clap",
@@ -2833,7 +2833,7 @@ dependencies = [
 
 [[package]]
 name = "taskcraft-core"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "chrono",
  "craft-biz",
@@ -2844,7 +2844,7 @@ dependencies = [
 
 [[package]]
 name = "taskcraft-mcp"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "clap",
  "craft-biz",
@@ -2855,7 +2855,7 @@ dependencies = [
 
 [[package]]
 name = "taskcraft-store"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "chrono",
  "rusqlite",
