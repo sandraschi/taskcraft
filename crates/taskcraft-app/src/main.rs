@@ -4,7 +4,9 @@
 use chrono::{Local, NaiveDate};
 use clap::Parser;
 use craft_biz::bus::Bus;
+use craft_biz_ui::bookend::{self, Bar, Spec};
 use craft_biz_ui::kanban::{Board, Card, Column, Event, Lane};
+use craft_biz_ui::menu::Item;
 use craft_biz_ui::palette::Palette;
 use craft_biz_ui::shell::{self, settings_path, Toasts, UiSettings};
 use craft_biz_ui::signals::{SignalAction, SignalsDock};
@@ -136,6 +138,7 @@ struct App {
 
     show_force_move: bool,
     force_move_target: Option<Status>,
+    bar: Bar,
 }
 
 impl App {
@@ -202,6 +205,7 @@ impl App {
 
             show_force_move: false,
             force_move_target: None,
+            bar: Bar::new(),
         };
 
         app.reload_projects();
@@ -2353,12 +2357,55 @@ impl App {
     }
 }
 
+impl App {
+    fn paint_menu(&mut self, ui: &mut egui::Ui) {
+        let docs = bookend::repo_docs(env!("CARGO_MANIFEST_DIR"));
+        let spec = Spec {
+            name: "TaskCraft",
+            version: env!("CARGO_PKG_VERSION"),
+            description: "Issues, the board, and git sync.",
+            repository: "https://github.com/sandraschi/taskcraft",
+            docs: &docs,
+            dark: self.settings.dark,
+            zoom: self.settings.zoom,
+            file: vec![Item::action("Refresh", "app.refresh")],
+            view: vec![
+                Item::action("Board", "view.board").checked(self.current_view == ActiveView::Board),
+                Item::action("Table", "view.table").checked(self.current_view == ActiveView::Table),
+                Item::action("Milestones", "view.milestones")
+                    .checked(self.current_view == ActiveView::Milestones),
+                Item::action("Git sync", "view.git")
+                    .checked(self.current_view == ActiveView::GitSync),
+                Item::action("History", "view.history")
+                    .checked(self.current_view == ActiveView::History),
+            ],
+            middle: Vec::new(),
+        };
+        let change = self.bar.show(ui, &spec);
+        if let Some(dark) = change.dark {
+            self.settings.dark = dark;
+        }
+        if let Some(zoom) = change.zoom {
+            self.settings.zoom = zoom;
+        }
+        match change.action.as_deref() {
+            Some("app.refresh") => self.reload_projects(),
+            Some("view.board") => self.current_view = ActiveView::Board,
+            Some("view.table") => self.current_view = ActiveView::Table,
+            Some("view.milestones") => self.current_view = ActiveView::Milestones,
+            Some("view.git") => self.current_view = ActiveView::GitSync,
+            Some("view.history") => self.current_view = ActiveView::History,
+            _ => {}
+        }
+    }
+}
+
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
+        self.paint_menu(ui);
 
-        // 1. Zoom, palette shortcut, and signal dock refresh
-        shell::handle_zoom(&ctx, &mut self.settings);
+        // 1. Palette shortcut and signal dock refresh
         self.palette.handle_shortcut(&ctx);
         self.dock.refresh(&self.ctx.bus, APP_NAME, false);
 
@@ -2477,12 +2524,20 @@ fn default_db() -> PathBuf {
 fn main() -> eframe::Result<()> {
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|a| a == "--smoke") {
+        if let Err(e) = bookend::smoke("TaskCraft", env!("CARGO_PKG_VERSION"), "issues") {
+            eprintln!("smoke: menu: {e}");
+            std::process::exit(1);
+        }
         println!("smoke: ok (taskcraft-app)");
         return Ok(());
     }
 
     let cli = Cli::parse();
     if cli.smoke {
+        if let Err(e) = bookend::smoke("TaskCraft", env!("CARGO_PKG_VERSION"), "issues") {
+            eprintln!("smoke: menu: {e}");
+            std::process::exit(1);
+        }
         println!("smoke: ok (taskcraft-app)");
         return Ok(());
     }

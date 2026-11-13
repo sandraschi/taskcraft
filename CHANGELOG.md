@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4 - 2026-11-13
+
+- The window menu is File, Edit, View, Window, and Help, above the existing top bar. View switches the five screens. `--smoke` checks the menu. Ctrl+K still opens the tool palette.
+
 ## 0.1.3 - 2026-11-10
 
 - Replaces Linear, Jira, Asana, and GitHub Projects: Local-first single SQLite WAL database, zero SaaS subscriptions or vendor lock-in, automatic read-only git log commit linking, and hard DAG blocker enforcement.
