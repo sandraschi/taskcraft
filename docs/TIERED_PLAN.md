@@ -54,6 +54,18 @@ State checked against the code on 2026-11-14 (v0.1.4, `craft_biz_ui::bookend`):
 
 ---
 
+### Tier 4b - Skills and in-app chat (fleet pilot, added 2026-11-14)
+taskcraft is the pilot for [`CRAFT_SKILLS_AND_CHAT_STANDARD.md`](../../mcp-central-docs/standards/rust-artcraft/CRAFT_SKILLS_AND_CHAT_STANDARD.md). It does not touch the schema, so it can go before or alongside Tier 5. It depends on the shared crates (`craft-skills`, the `craft-ai-core` fixes, `craft-ai-ui`) and on `craft-biz` changes; the repo-local plan is in `craft-ai/docs/CHAT_AND_SKILLS.md`.
+- [ ] Skills in `skills/`: `taskcraft-workflow` (projects, `KEY-n`, statuses, priorities, triage), `taskcraft-blockers` (`blocks` DAG, cycle check, `force`), `taskcraft-git-sync` (closing keywords, `--allow-path`, idempotence), `taskcraft-bus` (inbox kinds and what each creates). Each skill names only real `task_*` tools; size limits per the standard.
+- [ ] MCP: `skill://taskcraft-*/SKILL.md` resources, `task_skill_read`; `read_only` set on every tool (read-only: status, project list, issue list/show, milestone list, board, skill read; not read-only: project create, issue create/update/move, relation add/remove, milestone create/close, git sync, inbox drain, demo seed).
+- [ ] CLI: `taskcraft skills list|show|export`.
+- [ ] Window > Chat (`Ctrl+J`): `ChatHost` with `status()` = `task_status`, `selection()` = the issue open in the inspector (`task_issue_show`).
+- [ ] Help > Project Files & Docs: Skills tab.
+- [ ] Definition of done: standard section 8, including "Why is BC-5 blocked?" answered from a read-only tool call naming BC-4 and BC-6, and "Move BC-5 to done" producing a confirm card and actor `chat:<provider>/<model>` after Allow.
+- Effort: about 0.25 day in this repo once the shared crates exist (shared work about 2-2.5 days, standard section 7).
+
+---
+
 ## Scope extension: project management (added 2026-11-14)
 
 Schema changes per tier, code findings that changed this plan, and the test criteria that close each tier are in [PM_SPEC.md](PM_SPEC.md).

@@ -46,6 +46,8 @@ A local-first issue tracker for a 1-10 person team (Linear / Jira / Asana replac
 
 ## Next
 
+Skills and in-app chat (Tier 4b, fleet pilot, added 2026-11-14): taskcraft bundles skills (served to agents as `skill://` MCP resources and `task_skill_read`), and a Window > Chat dock uses those skills plus the live board and the open issue as preprompt. A local model is the default, and every tool call that changes data needs a click to confirm. Spec: `CRAFT_SKILLS_AND_CHAT_STANDARD.md` in mcd.
+
 Scope extended 2026-11-14 from issue tracker to project management for a startup or small company. Full tier specs in [TIERED_PLAN.md](TIERED_PLAN.md), Tiers 5-10:
 
 1. Tier 5: comments, attachments, mentions/watchers, epic -> issue -> subtask hierarchy, templates, custom fields, saved views.

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Docs: Tier 4b, skills and in-app chat (fleet pilot of `CRAFT_SKILLS_AND_CHAT_STANDARD.md`): four planned skills, `skill://` resources, `task_skill_read`, `read_only` flags per tool, Window > Chat with `task_status` and the open issue as context. PRD, HANDOVER updated.
 - Docs: scope extended from issue tracker to project management. TIERED_PLAN.md gains Tiers 5-10 (collaboration, sprints, timeline/CPM, portfolio and actuals, migration and reports, team-sharing decision gate). PRD Next and README honest list updated. No code changes.
 - Docs: Tier 10 decided as option A (single-writer `taskcraft serve` host).
 - Docs: new docs/PM_SPEC.md with code findings, schema migrations v2-v7, and test criteria per tier (CPM fixtures with hand-computed results, burndown, capacity and billing fixtures). Bus plan corrected: `leave.approved` and `time.billable` dropped in favour of the existing `capacity.changed` and `timesheet.approved`. Tier 4 checklist updated to the v0.1.4 state.
