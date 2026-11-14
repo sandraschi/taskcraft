@@ -46,8 +46,18 @@ A local-first issue tracker for a 1-10 person team (Linear / Jira / Asana replac
 
 ## Next
 
-1. Comments on issues.
-2. Use teamcraft capacity in milestone planning.
+Scope extended 2026-11-14 from issue tracker to project management for a startup or small company. Full tier specs in [TIERED_PLAN.md](TIERED_PLAN.md), Tiers 5-10:
+
+1. Tier 5: comments, attachments, mentions/watchers, epic -> issue -> subtask hierarchy, templates, custom fields, saved views.
+2. Tier 6: sprints planned against teamcraft capacity (minus leave and AT holidays), burndown, velocity.
+3. Tier 7: timeline / Gantt with start dates, durations, FS/SS/FF dependencies, working-calendar scheduler, critical path, baselines, milestone forecast, `milestone.slipped`.
+4. Tier 8: portfolio across projects, programs, workload heatmap with advisory levelling, actual hours from teamcraft (`time.logged`), optional cost, and billable hours to billcraft as `timesheet.approved`.
+
+Schema per tier, code findings and test criteria: [PM_SPEC.md](PM_SPEC.md).
+5. Tier 9: importers (Jira, Linear, Asana, Trello, ClickUp, GitHub) with dry-run diff, MS Project XML round-trip, .ics export, PDF status reports.
+6. Tier 10: team sharing, decided 2026-11-14 as option A: one host runs `taskcraft serve` as the only DB writer. Clients run the egui app with `--server`, and every change goes through the command bus over HTTP with version checks and per-user tokens. Binds to LAN or Tailscale only.
+
+Target replacement set after Tier 9: Jira Software, Asana, ClickUp, Linear, Trello, plus the planning half of MS Project / Smartsheet. Not targeted: enterprise resource pools, portfolio finance, hosted multi-tenant use.
 
 ## UI/UX Architecture & Menu Bar Standard
 

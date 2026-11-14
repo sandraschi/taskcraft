@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Docs: scope extended from issue tracker to project management. TIERED_PLAN.md gains Tiers 5-10 (collaboration, sprints, timeline/CPM, portfolio and actuals, migration and reports, team-sharing decision gate). PRD Next and README honest list updated. No code changes.
+- Docs: Tier 10 decided as option A (single-writer `taskcraft serve` host).
+- Docs: new docs/PM_SPEC.md with code findings, schema migrations v2-v7, and test criteria per tier (CPM fixtures with hand-computed results, burndown, capacity and billing fixtures). Bus plan corrected: `leave.approved` and `time.billable` dropped in favour of the existing `capacity.changed` and `timesheet.approved`. Tier 4 checklist updated to the v0.1.4 state.
+- Docs: PM_SPEC section 5. No suitable ready-made Gantt or scheduler crate, so we build our own scheduler in `taskcraft-core::schedule` and a reusable Gantt widget in `craft-biz-ui::gantt`. `utf8proj-solver` is used only as an optional dev-time oracle. Includes the widget layout and data contract.
+- Docs: the Gantt widget becomes a standalone `egui_gantt` crate, intended for crates.io; publishing procedure in PM_SPEC section 6. HANDOVER.md rewritten for the project-management scope. mcd craft-fleet page gains a "Planned improvements" section.
+
 ## 0.1.4 - 2026-11-13
 
 - The window menu is File, Edit, View, Window, and Help, above the existing top bar. View switches the five screens. `--smoke` checks the menu. Ctrl+K still opens the tool palette.

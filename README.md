@@ -5,6 +5,16 @@
 ![MCP stdio](https://img.shields.io/badge/MCP-stdio-purple)
 ![ArtCraft harness](https://img.shields.io/badge/ArtCraft-harness-green)
 
+## Install
+
+Tell Cursor, Claude, Antigravity, or OpenCode: **Install this.**
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install-craft.ps1
+```
+
+Installs the Windows app, the CLI, and the MCP bundle.
+
 Local-first issue tracker for a small team, with git commit linking. One SQLite file, one binary that is both CLI and MCP server. Part of the back-office craft suite (replaces Linear / Jira / Asana for the 1-10 person case).
 
 Status: **v0.1.3, Tier 1 + L3 Desktop Workstation** (store + CLI + MCP + egui app, tested). Synthetic demo data available via `demo-seed` or desktop top bar.
@@ -88,3 +98,4 @@ Needs `../craft-biz` checked out next to this repo. `git` on PATH for git sync (
 - No comments/attachments on issues; description and audit log only.
 - No sprints/cycles, no time tracking (teamcraft owns capacity).
 - Git sync is pull-on-demand; no hooks, no watcher. GitHub/GitLab issue import not implemented.
+- No timeline/Gantt, critical path, portfolio or workload views yet, and single-seat only. These are planned as Tiers 5-10 in [docs/TIERED_PLAN.md](docs/TIERED_PLAN.md) (project-management scope, added 2026-11-14).
