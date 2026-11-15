@@ -27,7 +27,7 @@ Not targeted: enterprise resource pools, portfolio finance, hosted multi-tenant 
 | 4b | Skills (bundled, served over MCP) + in-app chat with skills as preprompt; fleet pilot of `CRAFT_SKILLS_AND_CHAT_STANDARD.md` | Planned (needs shared crates first, about 2-2.5 days fleet-wide + 0.25 day here) |
 | 5 | Collaboration: migration runner, people, comments, attachments, epics, templates, custom fields, saved views | Planned |
 | 6 | Sprints against teamcraft capacity, burndown, velocity | Planned |
-| 7 | Scheduler (CPM, FS/SS/FF + lag, AT calendar), Gantt widget, baselines, forecast | Planned |
+| 7 | Scheduler (CPM, FS/SS/FF + lag, AT calendar), Gantt widget, baselines, forecast | Started. Scheduler core in `taskcraft-core::schedule` (10 tests, fixtures A-D), and Gantt widget in `egui_gantt` with the `craft-biz-ui::gantt` style (41 tests). Not wired: needs the v2-v4 schema (Tier 5 migration runner first) |
 | 8 | Portfolio, programs, workload, actual hours, health, billing to billcraft | Planned |
 | 9 | Importers (Jira, Linear, Asana, Trello, ClickUp, GitHub), MS Project XML, .ics, PDF reports | Planned |
 | 10 | Team sharing, option A: `taskcraft serve` single-writer host, egui clients, tokens, version checks | Planned (decided 2026-11-14) |

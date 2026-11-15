@@ -105,8 +105,14 @@ T5 Collaboration ──> T6 Iterations ──> T7 Timeline & CPM ──> T8 Port
 ### Tier 7 - Scheduling and timeline (Gantt)
 - [ ] Start date + duration (working days) on issues and milestones; duration defaults from estimate and assignee capacity.
 - [ ] Dependency types on the existing DAG: finish-to-start (from `blocks`), plus start-to-start and finish-to-finish with lag in days.
-- [ ] Scheduler: forward pass over the DAG on the working calendar (weekends, AT holidays, teamcraft leave), producing earliest start/finish. Deterministic, unit-tested against hand-computed schedules.
-- [ ] Critical path (CPM forward/backward pass, total float per task). Critical issues are highlighted on board and timeline.
+- [x] Scheduler core (2026-11-15): `taskcraft-core::schedule`, pure functions.
+  - Forward and backward pass over FS/SS/FF with working-day lag (negative allowed).
+  - Manual tasks keep their start and report violations; cycles across all link kinds are refused.
+  - `duration_for` rules; `AtCalendar` (Mon-Fri minus `craft_biz` AT holidays, plus closures and extra days) and `DayMap` (index to date).
+  - 10 tests, including PM_SPEC fixtures A, B, C (both calendar variants) and D, and the baseline slip.
+- [ ] Scheduler wiring: per-person daily capacity and teamcraft leave in durations (needs v3 `capacity_weeks`), and running it from the store (needs v4 columns).
+- [x] Critical path: total float per task and critical set in dependency order (in `schedule`).
+- [ ] Critical issues highlighted on board and timeline (needs the wiring above).
 - [ ] Baselines: snapshot the planned dates; slip = current vs baseline, per task and per milestone.
 - [ ] Milestone forecast: date from the schedule and, separately, from velocity, both shown with how they were computed.
 - [ ] Emits `milestone.slipped` (payload: milestone, baseline date, forecast date, cause issues) for the bus.

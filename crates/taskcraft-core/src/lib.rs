@@ -2,6 +2,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 pub mod gitsync;
+pub mod schedule;
 
 use chrono::NaiveDate;
 use craft_biz::at::parse_date;

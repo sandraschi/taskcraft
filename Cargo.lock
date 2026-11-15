@@ -721,6 +721,7 @@ dependencies = [
  "craft-biz",
  "eframe",
  "egui",
+ "egui_gantt",
  "image",
  "rfd",
  "serde",
@@ -904,6 +905,14 @@ dependencies = [
  "web-time",
  "windows-sys 0.61.2",
  "winit",
+]
+
+[[package]]
+name = "egui_gantt"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "egui",
 ]
 
 [[package]]
