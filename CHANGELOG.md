@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Database schema v2 (Tier 5 start). Opening an existing v1 database upgrades it automatically after saving a copy as `<db>.v1.bak`, and prints or shows where the copy is. Databases from a newer build are refused and left untouched.
+- Assignees are people now: each distinct name becomes one person (spelling variants such as `Joe Mocky` and `joe mocky` merge). Assigning by name works as before.
+- History events have a type (`issue.moved`, `commit.linked`, ...) and a project; events from before the upgrade are marked `legacy`.
+- New tables for comments, mentions, watchers, attachments, custom fields, templates and saved views. No tools use them yet.
+- Tests: migration of a real v1 database (every issue, relation, commit, label, milestone and event kept), backup, no-op reopen, refusal of newer schemas, handle rules.
+
 - Menu bar (Tier 4): Insert, Modify and Commands menus; File gets New Project (`Ctrl+N`), Export Issues as CSV (`Ctrl+E`) and Refresh (`F5`). Issue items are disabled until an issue is selected. All items run through one `menu_action` that reuses the existing command paths.
 - File > Export Issues as CSV: UTF-8 with BOM, semicolon-separated, RFC 4180 quoting, so it opens directly in Excel with German regional settings. Correction: the 0.1.3 entry below claimed a CSV export in the table; there was none until now.
 - `--smoke` now checks taskcraft's real menu bar instead of the empty generic bookend.

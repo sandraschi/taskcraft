@@ -516,6 +516,10 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    // stderr, so MCP stdout stays protocol-only.
+    if let Some(m) = tracker.migrated() {
+        eprintln!("taskcraft: {m}");
+    }
     let is_mcp = matches!(cli.cmd, Cmd::Mcp);
     let confinement = if is_mcp || !cli.allow_path.is_empty() {
         match Confinement::roots(&cli.allow_path) {

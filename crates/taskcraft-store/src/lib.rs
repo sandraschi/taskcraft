@@ -14,7 +14,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, VecDeque};
 use std::path::Path;
 
-pub const SCHEMA_VERSION: i64 = 1;
+mod migrate;
+pub use migrate::Migrated;
+
+/// Current schema. Raise it only together with a new entry in
+/// `migrate::MIGRATIONS`.
+pub const SCHEMA_VERSION: i64 = 2;
 const MAX_TITLE: usize = 300;
 const MAX_TEXT: usize = 20_000;
 
@@ -202,7 +207,9 @@ pub struct IssueFilter {
     pub limit: usize,
 }
 
-const SCHEMA: &str = r#"
+/// The v1 base schema (v0.1.4). Never edit it: a new database is created from
+/// it and then migrated, so schema changes go into `migrate.rs`.
+const SCHEMA_V1: &str = r#"
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY,
@@ -271,6 +278,29 @@ CREATE INDEX IF NOT EXISTS idx_events_issue ON events(issue_id);
 
 fn now() -> String {
     Utc::now().to_rfc3339()
+}
+
+/// Insert a history event; the project comes from the issue.
+fn insert_event(
+    conn: &Connection,
+    issue_id: i64,
+    kind: &str,
+    at: &str,
+    actor: &str,
+    what: &str,
+) -> Result<()> {
+    conn.execute(
+        "INSERT INTO events (project_id, issue_id, at, actor, kind, what)
+         VALUES ((SELECT project_id FROM issues WHERE id = ?1), ?1, ?2, ?3, ?4, ?5)",
+        params![
+            issue_id,
+            at,
+            actor,
+            kind,
+            what.chars().take(1000).collect::<String>()
+        ],
+    )?;
+    Ok(())
 }
 
 fn d2s(d: NaiveDate) -> String {
@@ -350,8 +380,86 @@ pub fn parse_issue_key(s: &str) -> Option<(String, i64)> {
     Some((key, num))
 }
 
+/// Person handle from a name: lower-case ASCII letters, digits, `.`, `_` and
+/// `-`, 2-32 characters. German umlauts are spelled out; other characters
+/// become `-`. Too short or empty gives `user-<h>` / `user`.
+pub fn person_handle(name: &str) -> String {
+    let mut h = String::new();
+    for c in name.trim().to_lowercase().chars() {
+        let spelled = match c {
+            'ä' => Some("ae"),
+            'ö' => Some("oe"),
+            'ü' => Some("ue"),
+            'ß' => Some("ss"),
+            _ => None,
+        };
+        if let Some(s) = spelled {
+            h.push_str(s);
+        } else if c.is_ascii_alphanumeric() || c == '.' || c == '_' {
+            h.push(c);
+        } else if !h.ends_with('-') {
+            h.push('-');
+        }
+    }
+    let mut h: String = h.trim_matches('-').chars().take(32).collect();
+    h = h.trim_end_matches('-').to_string();
+    match h.len() {
+        0 => "user".into(),
+        1 => format!("user-{h}"),
+        _ => h,
+    }
+}
+
+/// The person for a free-text name: same handle or same display name
+/// (case-insensitive), else a new person. Empty names give `None`.
+pub(crate) fn person_id_for(conn: &Connection, name: &str) -> Result<Option<i64>> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Ok(None);
+    }
+    if name.chars().count() > 100 {
+        return Err(TaskError::Invalid(
+            "assignee longer than 100 characters".into(),
+        ));
+    }
+    let handle = person_handle(name);
+    let found: Option<i64> = conn
+        .query_row(
+            "SELECT id FROM people WHERE handle = ?1 OR lower(display_name) = lower(?2) ORDER BY id LIMIT 1",
+            params![handle, name],
+            |r| r.get(0),
+        )
+        .optional()?;
+    if found.is_some() {
+        return Ok(found);
+    }
+    // Free handle: base, base-2, base-3, ... (kept within 32 characters).
+    let mut candidate = handle.clone();
+    let mut n = 1;
+    while conn
+        .query_row(
+            "SELECT 1 FROM people WHERE handle = ?1",
+            params![candidate],
+            |_| Ok(()),
+        )
+        .optional()?
+        .is_some()
+    {
+        n += 1;
+        let suffix = format!("-{n}");
+        let base: String = handle.chars().take(32 - suffix.len()).collect();
+        candidate = format!("{base}{suffix}");
+    }
+    conn.execute(
+        "INSERT INTO people (handle, display_name) VALUES (?1, ?2)",
+        params![candidate, name],
+    )?;
+    Ok(Some(conn.last_insert_rowid()))
+}
+
 pub struct Tracker {
     conn: Connection,
+    migrated: Option<Migrated>,
 }
 
 impl Tracker {
@@ -363,38 +471,23 @@ impl Tracker {
         }
         let conn = Connection::open(path)?;
         conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;")?;
-        Self::init(conn)
+        Self::init(conn, Some(path))
     }
 
     pub fn open_in_memory() -> Result<Tracker> {
-        Self::init(Connection::open_in_memory()?)
+        Self::init(Connection::open_in_memory()?, None)
     }
 
-    fn init(conn: Connection) -> Result<Tracker> {
-        conn.execute_batch("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;")?;
-        conn.execute_batch(SCHEMA)?;
-        let v: Option<String> = conn
-            .query_row(
-                "SELECT value FROM meta WHERE key = 'schema_version'",
-                [],
-                |r| r.get(0),
-            )
-            .optional()?;
-        match v.as_deref() {
-            None => {
-                conn.execute(
-                    "INSERT INTO meta (key, value) VALUES ('schema_version', ?1)",
-                    params![SCHEMA_VERSION.to_string()],
-                )?;
-            }
-            Some(x) if x == SCHEMA_VERSION.to_string() => {}
-            Some(x) => {
-                return Err(TaskError::Db(format!(
-                    "database schema {x} is newer than this build ({SCHEMA_VERSION})"
-                )))
-            }
-        }
-        Ok(Tracker { conn })
+    fn init(mut conn: Connection, path: Option<&Path>) -> Result<Tracker> {
+        conn.execute_batch("PRAGMA busy_timeout = 5000;")?;
+        let migrated = migrate::upgrade(&mut conn, path, SCHEMA_V1, SCHEMA_VERSION)?;
+        conn.execute_batch("PRAGMA foreign_keys = ON;")?;
+        Ok(Tracker { conn, migrated })
+    }
+
+    /// Set when opening upgraded an existing database (from, to, backup).
+    pub fn migrated(&self) -> Option<&Migrated> {
+        self.migrated.as_ref()
     }
 
     pub fn set_meta(&self, key: &str, value: &str) -> Result<()> {
@@ -573,17 +666,10 @@ impl Tracker {
 
     // ---------- issues ----------
 
-    fn event(&self, issue_id: i64, actor: &str, what: &str) -> Result<()> {
-        self.conn.execute(
-            "INSERT INTO events (issue_id, at, actor, what) VALUES (?1, ?2, ?3, ?4)",
-            params![
-                issue_id,
-                now(),
-                actor,
-                what.chars().take(1000).collect::<String>()
-            ],
-        )?;
-        Ok(())
+    /// History line for an issue. `kind` is typed (`issue.moved`, ...);
+    /// `what` is the human line shown in History.
+    fn event(&self, issue_id: i64, kind: &str, actor: &str, what: &str) -> Result<()> {
+        insert_event(&self.conn, issue_id, kind, &now(), actor, what)
     }
 
     pub fn create_issue(&mut self, n: &NewIssue, actor: &str) -> Result<Issue> {
@@ -603,6 +689,10 @@ impl Tracker {
             .transpose()?;
         let status = n.status.unwrap_or(Status::Backlog);
         let tx = self.conn.transaction()?;
+        let assignee_id = match n.assignee.as_deref() {
+            Some(a) => person_id_for(&tx, a)?,
+            None => None,
+        };
         let number: i64 = tx.query_row(
             "SELECT COALESCE(MAX(number), 0) + 1 FROM issues WHERE project_id = ?1",
             params![p.id],
@@ -610,11 +700,11 @@ impl Tracker {
         )?;
         let ts = now();
         tx.execute(
-            "INSERT INTO issues (project_id, number, title, description, status, priority, estimate, assignee, milestone_id, due_date, created_at, updated_at, closed_at)
+            "INSERT INTO issues (project_id, number, title, description, status, priority, estimate, assignee_id, milestone_id, due_date, created_at, updated_at, closed_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11, ?12)",
             params![
                 p.id, number, title, description, status.as_str(), n.priority.unwrap_or(Priority::Medium).as_str(),
-                n.estimate, n.assignee.as_deref().map(str::trim), milestone_id, n.due_date.map(d2s), ts,
+                n.estimate, assignee_id, milestone_id, n.due_date.map(d2s), ts,
                 if status.is_finished() { Some(ts.clone()) } else { None }
             ],
         )?;
@@ -625,9 +715,13 @@ impl Tracker {
                 params![id, l],
             )?;
         }
-        tx.execute(
-            "INSERT INTO events (issue_id, at, actor, what) VALUES (?1, ?2, ?3, ?4)",
-            params![id, ts, actor, format!("created as {}", status.as_str())],
+        insert_event(
+            &tx,
+            id,
+            "issue.created",
+            &ts,
+            actor,
+            &format!("created as {}", status.as_str()),
         )?;
         tx.commit()?;
         self.issue_by_id(id)
@@ -653,9 +747,10 @@ impl Tracker {
         self.issue_by_id(id).map(|i| i.id)
     }
 
-    const ISSUE_SELECT: &'static str = "SELECT i.id, p.key, i.number, i.title, i.description, i.status, i.priority, i.estimate, i.assignee,
+    const ISSUE_SELECT: &'static str = "SELECT i.id, p.key, i.number, i.title, i.description, i.status, i.priority, i.estimate, ppl.display_name,
         m.title, i.due_date, i.created_at, i.updated_at, i.closed_at
-        FROM issues i JOIN projects p ON p.id = i.project_id LEFT JOIN milestones m ON m.id = i.milestone_id";
+        FROM issues i JOIN projects p ON p.id = i.project_id LEFT JOIN milestones m ON m.id = i.milestone_id
+        LEFT JOIN people ppl ON ppl.id = i.assignee_id";
 
     fn row_to_issue(r: &rusqlite::Row<'_>) -> rusqlite::Result<(Issue, String, String)> {
         let key: String = r.get(1)?;
@@ -803,9 +898,13 @@ impl Tracker {
             ));
         }
         if let Some(a) = &patch.assignee {
+            let person = match a.as_deref() {
+                Some(name) => person_id_for(&tx, name)?,
+                None => None,
+            };
             tx.execute(
-                "UPDATE issues SET assignee = ?1 WHERE id = ?2",
-                params![a.as_deref().map(str::trim), cur.id],
+                "UPDATE issues SET assignee_id = ?1 WHERE id = ?2",
+                params![person, cur.id],
             )?;
             changes.push(format!("assignee -> {}", a.as_deref().unwrap_or("none")));
         }
@@ -850,9 +949,13 @@ impl Tracker {
             "UPDATE issues SET updated_at = ?1 WHERE id = ?2",
             params![ts, cur.id],
         )?;
-        tx.execute(
-            "INSERT INTO events (issue_id, at, actor, what) VALUES (?1, ?2, ?3, ?4)",
-            params![cur.id, ts, actor, changes.join("; ")],
+        insert_event(
+            &tx,
+            cur.id,
+            "issue.updated",
+            &ts,
+            actor,
+            &changes.join("; "),
         )?;
         tx.commit()?;
         self.issue_by_id(cur.id)
@@ -906,6 +1009,7 @@ impl Tracker {
         let note = if force { " (forced)" } else { "" };
         self.event(
             cur.id,
+            "issue.moved",
             actor,
             &format!("{} -> {}{note}", cur.status.as_str(), to.as_str()),
         )?;
@@ -962,8 +1066,18 @@ impl Tracker {
         if n == 0 {
             return Err(TaskError::Invalid("relation already exists".into()));
         }
-        self.event(s.id, actor, &format!("{} {}", kind.as_str(), t.key))?;
-        self.event(t.id, actor, &format!("{} by {}", kind.as_str(), s.key))?;
+        self.event(
+            s.id,
+            "relation.added",
+            actor,
+            &format!("{} {}", kind.as_str(), t.key),
+        )?;
+        self.event(
+            t.id,
+            "relation.added",
+            actor,
+            &format!("{} by {}", kind.as_str(), s.key),
+        )?;
         Ok(())
     }
 
@@ -983,7 +1097,12 @@ impl Tracker {
         if n == 0 {
             return Err(TaskError::NotFound("relation".into()));
         }
-        self.event(s.id, actor, &format!("removed {} {}", kind.as_str(), t.key))?;
+        self.event(
+            s.id,
+            "relation.removed",
+            actor,
+            &format!("removed {} {}", kind.as_str(), t.key),
+        )?;
         Ok(())
     }
 
@@ -1045,6 +1164,7 @@ impl Tracker {
             let short: String = c.hash.chars().take(8).collect();
             self.event(
                 issue_id,
+                "commit.linked",
                 &c.author,
                 &format!("commit {short}: {}", c.subject),
             )?;

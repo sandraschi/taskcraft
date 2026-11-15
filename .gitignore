@@ -5,5 +5,7 @@
 *.db
 *.db-wal
 *.db-shm
+# Committed on purpose: the schema-v1 migration fixture.
+!crates/taskcraft-store/tests/fixtures/v1.db
 *.csv
 dist/

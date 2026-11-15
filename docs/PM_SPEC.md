@@ -22,6 +22,12 @@ These change the plan. Each one is fixed in the tier that first needs it.
 - Table rebuilds (SQLite cannot change CHECK or NOT NULL in place) follow the 12-step pattern: `PRAGMA foreign_keys=OFF`, create `x_new`, copy, drop, rename, recreate indexes, `PRAGMA foreign_key_check`, `foreign_keys=ON`.
 - Tests: open a v1 fixture DB (committed under `tests/fixtures/v1.db`, produced by `demo-seed` at v0.1.4) and migrate to latest; issue count, numbers, relations, commits and events are unchanged; a second open is a no-op; a DB stamped with version 99 is refused.
 
+**As built (2026-11-15).**
+- The fixture lives at `crates/taskcraft-store/tests/fixtures/v1.db`, with its recipe in the README next to it, and is committed despite the `*.db` ignore rule.
+- Migrations are Rust functions, not `&str`, because v2 needs the handle rule while backfilling.
+- `templates.kind` and `templates.priority` got the same CHECK constraints as `issues`; the spec had none.
+- Handle rule (`person_handle`): lower-case ASCII, umlauts and ß spelled out, other characters become `-`, at most 32 characters, `user-<h>` when shorter than 2. A name matches an existing person by handle or case-insensitive display name.
+
 ## 2. Schema per tier
 
 Types follow the existing schema: dates `TEXT 'YYYY-MM-DD'`, timestamps RFC 3339 `TEXT`, money in integer cents, durations in integer minutes or working days. JSON columns are allowed only where noted.

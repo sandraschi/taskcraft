@@ -81,9 +81,11 @@ T5 Collaboration ──> T6 Iterations ──> T7 Timeline & CPM ──> T8 Port
 ```
 
 ### Tier 5 - Collaboration and work structure
-- [ ] Migration runner first: the v1 store refuses any other schema version, so nothing below can ship without it (PM_SPEC section 1).
-- [ ] `people` table: one identity for assignees, teamcraft employee codes, and Tier 10 users. Free-text assignees are backfilled into it.
-- [ ] Events table rebuilt so sprint, baseline and import events can exist without an issue.
+- [x] Migration runner (2026-11-15): `taskcraft-store/src/migrate.rs`. One transaction per step with a foreign-key check, `VACUUM INTO <db>.v<old>.bak` before an existing file is changed (never overwrites an older backup), newer databases refused. New databases are created at v1 and migrated, so both paths run the same code. CLI, MCP (stderr) and app (toast) report the upgrade and the backup path.
+- [x] Schema v2 in full (PM_SPEC section 2): `people`, hierarchy columns (`parent_id`, `kind`), `version` columns, comments, mentions, watchers, attachments, custom fields, templates, saved views. Tables only; the features below use them.
+- [x] `people` table: free-text assignees backfilled (one person per distinct name, spelling variants merged). Assigning by name still works and finds or creates the person; `Issue.assignee` still returns the display name, so CLI, MCP and app output are unchanged.
+- [x] Events table rebuilt: nullable issue, `project_id`, typed `kind` (`issue.created`, `issue.updated`, `issue.moved`, `relation.added`, `relation.removed`, `commit.linked`; old rows `legacy`), `payload`.
+- [x] Criterion 1 test: real v1 fixture (`crates/taskcraft-store/tests/fixtures/v1.db`, made with the v0.1.4 CLI) migrates with every issue, relation, commit, label, milestone and event unchanged; 8 tests in `tests/migrate.rs`.
 - [ ] Comments on issues (markdown body, author, edit history, actor recorded as for every other change).
 - [ ] Attachments as confined file references (`--allow-path`), stored by path + SHA-256, never copied into the DB.
 - [ ] `@mentions` and watchers; a per-user "my work" inbox view (assigned, mentioned, watched).

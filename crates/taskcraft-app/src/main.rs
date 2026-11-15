@@ -2865,7 +2865,11 @@ fn main() -> eframe::Result<()> {
         "TaskCraft",
         native_options,
         Box::new(move |cc| {
-            let app = App::new(ctx, app_db_path);
+            let mut app = App::new(ctx, app_db_path);
+            if let Some(m) = app.ctx.tracker.migrated().map(|m| m.to_string()) {
+                eprintln!("taskcraft: {m}");
+                app.toasts.ok(m);
+            }
             shell::install(&cc.egui_ctx, &app.settings);
             Ok(Box::new(app))
         }),
