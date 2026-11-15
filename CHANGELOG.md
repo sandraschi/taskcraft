@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Docs: Tier 7 notes the new `egui_gantt` repo (v0.1: display, calendar, selection; dragging still to do).
 - Docs: Tier 4b, skills and in-app chat (fleet pilot of `CRAFT_SKILLS_AND_CHAT_STANDARD.md`): four planned skills, `skill://` resources, `task_skill_read`, `read_only` flags per tool, Window > Chat with `task_status` and the open issue as context. PRD, HANDOVER updated.
 - Docs: scope extended from issue tracker to project management. TIERED_PLAN.md gains Tiers 5-10 (collaboration, sprints, timeline/CPM, portfolio and actuals, migration and reports, team-sharing decision gate). PRD Next and README honest list updated. No code changes.
 - Docs: Tier 10 decided as option A (single-writer `taskcraft serve` host).

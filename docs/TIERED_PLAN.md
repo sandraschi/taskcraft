@@ -111,7 +111,7 @@ T5 Collaboration ──> T6 Iterations ──> T7 Timeline & CPM ──> T8 Port
 - [ ] Milestone forecast: date from the schedule and, separately, from velocity, both shown with how they were computed.
 - [ ] Emits `milestone.slipped` (payload: milestone, baseline date, forecast date, cause issues) for the bus.
 - [ ] Tools: `task_schedule`, `task_critical_path`, `task_baseline_set`, `task_baseline_diff`, `task_milestone_forecast`, `task_timeline` (JSON rows for any renderer).
-- [ ] Gantt widget as a standalone `egui_gantt` crate (egui only) with a `craft-biz-ui::gantt` theme wrapper; publish to crates.io after it has been used in taskcraft (PM_SPEC sections 5-6).
+- [ ] Gantt widget as a standalone `egui_gantt` crate (egui only) with a `craft-biz-ui::gantt` theme wrapper; publish to crates.io after it has been used in taskcraft (PM_SPEC sections 5-6). **Started 2026-11-15:** [sandraschi/egui_gantt](https://github.com/sandraschi/egui_gantt) v0.1 has the calendar, layout, styles, display, selection and tooltips, with fixtures A and C rendered in its example (26 tests). Still to do: dragging to move and resize bars, dragging to create links, keyboard navigation, the `craft-biz-ui` wrapper.
 - [ ] UI: Timeline / Gantt screen in egui (bars, dependency arrows, today line, critical path in red, baseline ghost bars, drag to reschedule with a dependency check on drop). Zoom day/week/month, Ctrl+wheel.
 
 ### Tier 8 - Portfolio, workload and actuals
