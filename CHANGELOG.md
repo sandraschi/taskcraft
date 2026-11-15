@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Menu bar (Tier 4): Insert, Modify and Commands menus; File gets New Project (`Ctrl+N`), Export Issues as CSV (`Ctrl+E`) and Refresh (`F5`). Issue items are disabled until an issue is selected. All items run through one `menu_action` that reuses the existing command paths.
+- File > Export Issues as CSV: UTF-8 with BOM, semicolon-separated, RFC 4180 quoting, so it opens directly in Excel with German regional settings. Correction: the 0.1.3 entry below claimed a CSV export in the table; there was none until now.
+- `--smoke` now checks taskcraft's real menu bar instead of the empty generic bookend.
+- Tests: every menu item has a handler, CSV quoting, Tofu Guard over all menu text (with a negative check), and an egui_kittest test for `switch_on_hover` and a menu command running through dispatch. New dependency `rfd` (save dialog), dev-dependency `egui_kittest`.
+
 - `taskcraft-core::schedule`: CPM scheduler (Tier 7 core). Forward and backward pass with finish-to-start, start-to-start and finish-to-finish links and working-day lag; total float and critical set; manual tasks with violation reports; cycle, duplicate, unknown and self-dependency errors; `duration_for`; `AtCalendar` and `DayMap` to map working-day indices to Austrian calendar dates. 10 tests matching PM_SPEC fixtures A to D. Not wired to the store yet.
 - Docs: Tier 7 notes the new `egui_gantt` repo (v0.1: display, calendar, selection; dragging still to do).
 - Docs: Tier 4b, skills and in-app chat (fleet pilot of `CRAFT_SKILLS_AND_CHAT_STANDARD.md`): four planned skills, `skill://` resources, `task_skill_read`, `read_only` flags per tool, Window > Chat with `task_status` and the open issue as context. PRD, HANDOVER updated.

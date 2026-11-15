@@ -6,7 +6,7 @@ use clap::Parser;
 use craft_biz::bus::Bus;
 use craft_biz_ui::bookend::{self, Bar, Spec};
 use craft_biz_ui::kanban::{Board, Card, Column, Event, Lane};
-use craft_biz_ui::menu::Item;
+use craft_biz_ui::menu::{Item, Menu};
 use craft_biz_ui::palette::Palette;
 use craft_biz_ui::shell::{self, settings_path, Toasts, UiSettings};
 use craft_biz_ui::signals::{SignalAction, SignalsDock};
@@ -2368,7 +2368,7 @@ impl App {
             docs: &docs,
             dark: self.settings.dark,
             zoom: self.settings.zoom,
-            file: vec![Item::action("Refresh", "app.refresh")],
+            file: self.file_items(),
             view: vec![
                 Item::action("Board", "view.board").checked(self.current_view == ActiveView::Board),
                 Item::action("Table", "view.table").checked(self.current_view == ActiveView::Table),
@@ -2379,7 +2379,7 @@ impl App {
                 Item::action("History", "view.history")
                     .checked(self.current_view == ActiveView::History),
             ],
-            middle: Vec::new(),
+            middle: self.middle_menus(),
         };
         let change = self.bar.show(ui, &spec);
         if let Some(dark) = change.dark {
@@ -2388,16 +2388,275 @@ impl App {
         if let Some(zoom) = change.zoom {
             self.settings.zoom = zoom;
         }
-        match change.action.as_deref() {
-            Some("app.refresh") => self.reload_projects(),
-            Some("view.board") => self.current_view = ActiveView::Board,
-            Some("view.table") => self.current_view = ActiveView::Table,
-            Some("view.milestones") => self.current_view = ActiveView::Milestones,
-            Some("view.git") => self.current_view = ActiveView::GitSync,
-            Some("view.history") => self.current_view = ActiveView::History,
-            _ => {}
+        if let Some(id) = change.action.as_deref() {
+            self.menu_action(id, true);
         }
     }
+
+    /// File items above Quit.
+    fn file_items(&self) -> Vec<Item> {
+        let cmd = egui::Modifiers::COMMAND;
+        vec![
+            Item::action("New Project...", "file.new_project")
+                .key(cmd, egui::Key::N)
+                .key_text("Ctrl+N"),
+            Item::action("Export Issues as CSV...", "file.export_csv")
+                .key(cmd, egui::Key::E)
+                .key_text("Ctrl+E")
+                .enabled(self.selected_project.is_some())
+                .hint("Every issue of the current project, semicolon-separated for Excel."),
+            Item::sep(),
+            Item::action("Refresh", "app.refresh")
+                .key(egui::Modifiers::NONE, egui::Key::F5)
+                .key_text("F5"),
+        ]
+    }
+
+    /// Insert, Modify and Commands (Craft Menu Bar Standard middle menus).
+    fn middle_menus(&self) -> Vec<Menu> {
+        let cmd_shift = egui::Modifiers::COMMAND | egui::Modifiers::SHIFT;
+        let project = self.selected_project.is_some();
+        let issue = self.selected_issue_key.is_some();
+        let pick_issue = "Select an issue first.";
+        let insert = Menu::new(
+            "Insert",
+            vec![
+                Item::action("New Issue...", "insert.issue")
+                    .key(cmd_shift, egui::Key::I)
+                    .key_text("Ctrl+Shift+I")
+                    .enabled(project),
+                Item::action("New Milestone...", "insert.milestone").enabled(project),
+                Item::action("Relation from Selected Issue...", "insert.relation")
+                    .enabled(issue)
+                    .hint(pick_issue),
+            ],
+        );
+        let moves = Status::ALL
+            .iter()
+            .map(|s| Item::action(status_label(*s), &format!("modify.move.{}", s.as_str())))
+            .collect();
+        let priorities = Priority::ALL
+            .iter()
+            .map(|p| {
+                Item::action(
+                    priority_label(*p),
+                    &format!("modify.priority.{}", p.as_str()),
+                )
+            })
+            .collect();
+        let modify = Menu::new(
+            "Modify",
+            vec![
+                Item::sub("Move To", moves).enabled(issue),
+                Item::sub("Priority", priorities).enabled(issue),
+                Item::action("Edit Fields...", "modify.edit")
+                    .enabled(issue)
+                    .hint(pick_issue),
+                Item::action("Open in Inspector", "modify.inspect")
+                    .enabled(issue)
+                    .hint(pick_issue),
+            ],
+        );
+        let commands = Menu::new(
+            "Commands",
+            vec![
+                Item::action("Run Git Sync", "cmd.git_sync").enabled(project),
+                Item::action("Drain Cross-App Inbox", "cmd.inbox_drain"),
+                Item::sep(),
+                Item::action("Tool Palette...", "cmd.palette").key_text("Ctrl+K"),
+                Item::action("Seed Demo Data", "cmd.demo_seed")
+                    .enabled(self.projects.is_empty())
+                    .hint("Only on an empty database."),
+            ],
+        );
+        vec![insert, modify, commands]
+    }
+
+    /// Run a menu action. With `run` false it only reports whether the id is
+    /// known (used by the menu test, so every menu item has a handler).
+    fn menu_action(&mut self, id: &str, run: bool) -> bool {
+        let status = id
+            .strip_prefix("modify.move.")
+            .and_then(|s| Status::parse(s).ok());
+        let priority = id
+            .strip_prefix("modify.priority.")
+            .and_then(|s| Priority::parse(s).ok());
+        let known = status.is_some()
+            || priority.is_some()
+            || matches!(
+                id,
+                "app.refresh"
+                    | "file.new_project"
+                    | "file.export_csv"
+                    | "insert.issue"
+                    | "insert.milestone"
+                    | "insert.relation"
+                    | "modify.edit"
+                    | "modify.inspect"
+                    | "cmd.git_sync"
+                    | "cmd.inbox_drain"
+                    | "cmd.palette"
+                    | "cmd.demo_seed"
+                    | "view.board"
+                    | "view.table"
+                    | "view.milestones"
+                    | "view.git"
+                    | "view.history"
+            );
+        if !known || !run {
+            return known;
+        }
+        let selected = self.selected_issue_key.clone();
+        if let (Some(s), Some(key)) = (status, selected.as_deref()) {
+            self.execute_move_issue(key, s, false);
+            return true;
+        }
+        if let (Some(p), Some(key)) = (priority, selected.as_deref()) {
+            let patch = IssuePatch {
+                priority: Some(p),
+                ..IssuePatch::default()
+            };
+            self.execute_update_issue_patch(key, patch);
+            return true;
+        }
+        match id {
+            "app.refresh" => self.reload_projects(),
+            "file.new_project" => self.show_new_project = true,
+            "file.export_csv" => self.export_csv(),
+            "insert.issue" => self.open_new_issue_modal(None, None),
+            "insert.milestone" => self.show_new_milestone = true,
+            "insert.relation" => {
+                if let Some(key) = selected {
+                    self.open_tool_form("task_relation_add", &[("source", key)]);
+                }
+            }
+            "modify.edit" => {
+                if let Some(key) = selected {
+                    self.open_tool_form("task_issue_update", &[("issue", key)]);
+                }
+            }
+            "modify.inspect" => self.inspector_open = selected.is_some(),
+            "cmd.git_sync" => self.execute_git_sync(),
+            "cmd.inbox_drain" => self.run_tool("task_inbox_drain"),
+            "cmd.palette" => self.palette.open_list(),
+            "cmd.demo_seed" => self.execute_demo_seed(),
+            "view.board" => self.current_view = ActiveView::Board,
+            "view.table" => self.current_view = ActiveView::Table,
+            "view.milestones" => self.current_view = ActiveView::Milestones,
+            "view.git" => self.current_view = ActiveView::GitSync,
+            "view.history" => self.current_view = ActiveView::History,
+            _ => {}
+        }
+        true
+    }
+
+    /// Open one tool's form in the palette with some fields filled in.
+    fn open_tool_form(&mut self, tool: &str, prefill: &[(&str, String)]) {
+        let Some(t) = tools().into_iter().find(|t| t["name"] == tool) else {
+            self.toasts.err(format!("Unknown tool {tool}"));
+            return;
+        };
+        self.palette.prefill = prefill
+            .iter()
+            .map(|(k, v)| ((*k).to_string(), v.clone()))
+            .collect();
+        self.palette.open_tool(&t);
+        self.palette.prefill.clear();
+    }
+
+    /// Run a tool without arguments and report the result.
+    fn run_tool(&mut self, tool: &str) {
+        let args = serde_json::Value::Object(serde_json::Map::new());
+        match Command::from_tool(tool, &args).and_then(|cmd| dispatch(&mut self.ctx, cmd)) {
+            Ok(out) => {
+                self.toasts.ok(format!("{tool}: {out}"));
+                self.reload_projects();
+            }
+            Err(e) => self.toasts.err(format!("{tool} failed: {e}")),
+        }
+    }
+
+    /// File > Export Issues as CSV.
+    fn export_csv(&mut self) {
+        let Some(project) = self.selected_project.clone() else {
+            self.toasts.err("Select a project first");
+            return;
+        };
+        let issues: Vec<&Issue> = self
+            .all_issues
+            .iter()
+            .filter(|i| i.project == project)
+            .collect();
+        let Some(path) = rfd::FileDialog::new()
+            .set_file_name(format!("{project}-issues.csv"))
+            .add_filter("CSV", &["csv"])
+            .save_file()
+        else {
+            return;
+        };
+        match std::fs::write(&path, issues_csv(&issues)) {
+            Ok(()) => self.toasts.ok(format!(
+                "Exported {} issues to {}",
+                issues.len(),
+                path.display()
+            )),
+            Err(e) => self.toasts.err(format!("Export failed: {e}")),
+        }
+    }
+}
+
+fn status_label(s: Status) -> &'static str {
+    match s {
+        Status::Backlog => "Backlog",
+        Status::Todo => "To Do",
+        Status::InProgress => "In Progress",
+        Status::InReview => "In Review",
+        Status::Done => "Done",
+        Status::Canceled => "Canceled",
+    }
+}
+
+fn priority_label(p: Priority) -> &'static str {
+    match p {
+        Priority::Urgent => "Urgent",
+        Priority::High => "High",
+        Priority::Medium => "Medium",
+        Priority::Low => "Low",
+    }
+}
+
+/// Issues as CSV for Excel in German-speaking locales: UTF-8 with BOM,
+/// semicolon-separated, CRLF line ends (RFC 4180 quoting).
+fn issues_csv(issues: &[&Issue]) -> String {
+    fn field(s: &str) -> String {
+        if s.contains([';', '"', '\n', '\r']) {
+            format!("\"{}\"", s.replace('"', "\"\""))
+        } else {
+            s.to_string()
+        }
+    }
+    let mut out = String::from("\u{feff}");
+    out.push_str("key;title;status;priority;estimate;assignee;milestone;due_date;labels;created_at;updated_at;closed_at\r\n");
+    for i in issues {
+        let cols = [
+            i.key.clone(),
+            i.title.clone(),
+            i.status.as_str().to_string(),
+            i.priority.as_str().to_string(),
+            i.estimate.map(|e| e.to_string()).unwrap_or_default(),
+            i.assignee.clone().unwrap_or_default(),
+            i.milestone.clone().unwrap_or_default(),
+            i.due_date.map(|d| d.to_string()).unwrap_or_default(),
+            i.labels.join(","),
+            i.created_at.clone(),
+            i.updated_at.clone(),
+            i.closed_at.clone().unwrap_or_default(),
+        ];
+        let line: Vec<String> = cols.iter().map(|c| field(c)).collect();
+        out.push_str(&line.join(";"));
+        out.push_str("\r\n");
+    }
+    out
 }
 
 impl eframe::App for App {
@@ -2521,10 +2780,36 @@ fn default_db() -> PathBuf {
     base.join("taskcraft").join("taskcraft.db")
 }
 
+/// `--smoke`: build the real menu bar on an in-memory database and check it
+/// against the Craft Menu Bar Standard (bookend order, Help items).
+fn smoke_menus() -> Result<(), String> {
+    let tracker = Tracker::open_in_memory().map_err(|e| e.to_string())?;
+    let ctx = Ctx {
+        tracker,
+        confinement: Confinement(None),
+        bus: Bus::new(std::env::temp_dir().join("taskcraft_smoke_bus")),
+        actor: "smoke".to_string(),
+    };
+    let app = App::new(ctx, PathBuf::from("smoke.db"));
+    let spec = Spec {
+        name: APP_NAME,
+        version: env!("CARGO_PKG_VERSION"),
+        description: "Issues, the board, and git sync.",
+        repository: "",
+        docs: &[],
+        dark: true,
+        zoom: 1.0,
+        file: app.file_items(),
+        view: Vec::new(),
+        middle: app.middle_menus(),
+    };
+    bookend::check(&bookend::menus(&spec))
+}
+
 fn main() -> eframe::Result<()> {
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|a| a == "--smoke") {
-        if let Err(e) = bookend::smoke("TaskCraft", env!("CARGO_PKG_VERSION"), "issues") {
+        if let Err(e) = smoke_menus() {
             eprintln!("smoke: menu: {e}");
             std::process::exit(1);
         }
@@ -2534,7 +2819,7 @@ fn main() -> eframe::Result<()> {
 
     let cli = Cli::parse();
     if cli.smoke {
-        if let Err(e) = bookend::smoke("TaskCraft", env!("CARGO_PKG_VERSION"), "issues") {
+        if let Err(e) = smoke_menus() {
             eprintln!("smoke: menu: {e}");
             std::process::exit(1);
         }
@@ -2638,5 +2923,146 @@ mod tests {
         // Move issue
         app.execute_move_issue("TC-1", Status::InProgress, false);
         assert_eq!(app.all_issues[0].status, Status::InProgress);
+
+        // Menu actions on the selected issue go through the same commands.
+        assert!(app.menu_action("modify.priority.urgent", true));
+        assert_eq!(app.all_issues[0].priority, Priority::Urgent);
+        assert!(app.menu_action("modify.move.in_review", true));
+        assert_eq!(app.all_issues[0].status, Status::InReview);
+        assert!(app.menu_action("insert.relation", true));
+        assert_eq!(app.palette.form_tool(), Some("task_relation_add"));
+        assert_eq!(app.palette.form_value("source").as_deref(), Some("TC-1"));
+    }
+
+    fn memory_app() -> App {
+        let tracker = Tracker::open_in_memory().expect("open memory db");
+        let ctx = Ctx {
+            tracker,
+            confinement: Confinement(None),
+            bus: Bus::new(std::env::temp_dir().join("taskcraft_test_bus_menu")),
+            actor: "test_actor".to_string(),
+        };
+        App::new(ctx, PathBuf::from("memory.db"))
+    }
+
+    /// Craft Menu Bar Standard: Insert, Modify and Commands exist, every
+    /// item has a handler, and issue items are disabled without a selection.
+    #[test]
+    fn every_menu_item_has_a_handler() {
+        let mut app = memory_app();
+        let menus = app.middle_menus();
+        let titles: Vec<&str> = menus.iter().map(|m| m.title.as_str()).collect();
+        assert_eq!(titles, vec!["Insert", "Modify", "Commands"]);
+        let mut all = menus.clone();
+        all.push(Menu::new("File", app.file_items()));
+        let mut ids = Vec::new();
+        for leaf in craft_biz_ui::menu::leaves(&all) {
+            if let craft_biz_ui::menu::Kind::Action(id) = &leaf.kind {
+                ids.push(id.clone());
+            }
+        }
+        assert!(ids.len() >= 20, "{ids:?}");
+        for id in &ids {
+            assert!(app.menu_action(id, false), "no handler for {id}");
+        }
+        assert!(!app.menu_action("modify.move.nonsense", false));
+        assert_eq!(smoke_menus(), Ok(()));
+        // Nothing selected: issue items are disabled, demo seed is enabled.
+        let modify = &menus[1];
+        assert!(modify.items.iter().all(|i| !i.enabled));
+        let seed = menus[2].items.iter().find(|i| i.label == "Seed Demo Data");
+        assert!(seed.is_some_and(|i| i.enabled));
+    }
+
+    /// Craft Menu Bar Standard, end to end on the real bar: with File open,
+    /// hovering Commands switches menus; a Commands item runs through
+    /// `dispatch` and changes the database.
+    #[test]
+    fn menu_bar_switches_on_hover_and_runs_commands() {
+        use egui_kittest::kittest::Queryable;
+        let mut h = egui_kittest::Harness::builder()
+            .with_size([1280.0, 800.0])
+            .build_ui_state(|ui, app: &mut App| app.paint_menu(ui), memory_app());
+        h.run_steps(3);
+        h.get_by_label("File").click();
+        h.run_steps(2);
+        assert!(
+            h.query_by_label_contains("New Project...").is_some(),
+            "File is open"
+        );
+        h.get_by_label("Commands").hover();
+        h.run_steps(3);
+        assert!(
+            h.query_by_label_contains("New Project...").is_none(),
+            "File closed"
+        );
+        assert!(
+            h.query_by_label_contains("Run Git Sync").is_some(),
+            "Commands open"
+        );
+        assert!(h.state().projects.is_empty());
+        h.get_by_label_contains("Seed Demo Data").click();
+        h.run_steps(3);
+        assert!(
+            !h.state().projects.is_empty(),
+            "demo seed ran from the menu"
+        );
+    }
+
+    /// Tofu Guard: every menu title, item and hint renders with the craft
+    /// fonts (regular, semibold, bold, mono).
+    #[test]
+    fn menu_text_has_no_tofu() {
+        let mut app = memory_app();
+        app.new_project_key = "TC".to_string();
+        app.new_project_name = "Test".to_string();
+        app.execute_create_project();
+        app.new_issue_title = "Glyphs".to_string();
+        app.execute_create_issue();
+        let spec = Spec {
+            name: APP_NAME,
+            version: env!("CARGO_PKG_VERSION"),
+            description: "Issues, the board, and git sync.",
+            repository: "",
+            docs: &[],
+            dark: true,
+            zoom: 1.0,
+            file: app.file_items(),
+            view: Vec::new(),
+            middle: app.middle_menus(),
+        };
+        let menus = bookend::menus(&spec);
+        let ctx = egui::Context::default();
+        theme::install_fonts(&ctx);
+        let mut out = ctx.run_ui(egui::RawInput::default(), |_| {});
+        out.textures_delta.clear();
+        let report = craft_biz_ui::menu::tofu_report(&ctx, &menus, &[]);
+        assert!(report.is_empty(), "{report:?}");
+        // The guard is live: a character no font ships is reported.
+        let missing = craft_biz_ui::menu::missing_glyphs(&ctx, "ok \u{10fffd}");
+        assert_eq!(missing, vec!['\u{10fffd}']);
+    }
+
+    #[test]
+    fn csv_export_quotes_and_uses_semicolons() {
+        let mut app = memory_app();
+        app.new_project_key = "TC".to_string();
+        app.new_project_name = "Test".to_string();
+        app.execute_create_project();
+        app.new_issue_title = "Fix \"quoted\"; export".to_string();
+        app.new_issue_labels = "bug, export".to_string();
+        app.execute_create_issue();
+        let issues: Vec<&Issue> = app.all_issues.iter().collect();
+        let csv = issues_csv(&issues);
+        assert!(csv.starts_with('\u{feff}'));
+        let lines: Vec<&str> = csv.trim_start_matches('\u{feff}').split("\r\n").collect();
+        assert!(lines[0].starts_with("key;title;status"));
+        assert!(
+            lines[1].starts_with("TC-1;\"Fix \"\"quoted\"\"; export\";"),
+            "{}",
+            lines[1]
+        );
+        assert!(lines[1].contains(";bug,export;"), "{}", lines[1]);
+        assert_eq!(lines.len(), 3, "header, one row, trailing empty");
     }
 }

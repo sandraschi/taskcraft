@@ -23,7 +23,7 @@ Not targeted: enterprise resource pools, portfolio finance, hosted multi-tenant 
 | 1 | Store + core: projects, `KEY-n` issues, milestones, cycle-checked blockers, history, git sync, bus inbox | Done |
 | 2 | CLI `--json` + MCP stdio, 17 tools | Done |
 | 3 | egui workstation: Kanban, table, inspector, milestones, git, history, palette, signals dock | Done |
-| 4 | Menu bar, Help, packaging | Partly done: bookend menu (File/Edit/View/Window/Help) with 5 Help dialogs, zoom, theme, `--smoke`. Missing: Insert/Modify/Commands menus, File items, hover switching check, tofu check, release packaging |
+| 4 | Menu bar, Help, packaging | Done 2026-11-15 except Undo/Redo (no undo stack) and publishing a GitHub release. Full bar with Insert/Modify/Commands, CSV export, hover and tofu tests, smoke on the real bar, release script verified by dry run |
 | 4b | Skills (bundled, served over MCP) + in-app chat with skills as preprompt; fleet pilot of `CRAFT_SKILLS_AND_CHAT_STANDARD.md` | Planned (needs shared crates first, about 2-2.5 days fleet-wide + 0.25 day here) |
 | 5 | Collaboration: migration runner, people, comments, attachments, epics, templates, custom fields, saved views | Planned |
 | 6 | Sprints against teamcraft capacity, burndown, velocity | Planned |
@@ -59,7 +59,7 @@ Estimates (AI-assisted): Tiers 5-9 about 9-14 days, Tier 10 about 2-3 days.
 
 ## 5. Immediate next steps (in order)
 
-1. Close Tier 4: Insert / Modify / Commands menus through `Spec.middle`, real File items, release script that ships exes (no zip-only download).
+1. Tier 5 migration runner (PM_SPEC section 1): v1 fixture database, forward-only steps, backup before migrate. It unblocks the v2-v4 schema, then wiring the scheduler and `egui_gantt` into a Timeline view. Tier 4 is closed (2026-11-15).
 2. Tier 4b can go in parallel once craft-ai has `craft-skills`, the `complete()` / `chat()` fixes and `craft-ai-ui` (plan: `craft-ai/docs/CHAT_AND_SKILLS.md`). Write the four skills early: they help agents even before the chat exists.
 3. Tier 5 item 1: migration runner + v1 fixture DB + tests (PM_SPEC section 1).
 4. Tier 5 rest, test by test from PM_SPEC section 3.

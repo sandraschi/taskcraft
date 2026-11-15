@@ -78,3 +78,10 @@ In accordance with [`CRAFT_MENU_BAR_STANDARD.md`](../../mcp-central-docs/standar
   - `Window`: Reset Layout, Board Viewport, Issue Inspector Drawer, Cross-App Bus Dock.
   - `Help` (Mandatory 5-Dialog Suite): `Command Palette...` (`Ctrl+K`), `Keyboard Shortcuts...` (`F1`), `Project Files & Docs...`, `Licenses & Notices...`, `About TaskCraft`.
 - **Behavioral Mechanics:** Smooth `switch_on_hover` between top-level menus, zero-unsafe immediate-mode rendering, and headless `--smoke` parity.
+- **Built as of 2026-11-15 (v0.1.4 + Unreleased):**
+  - `File`: New Project... (`Ctrl+N`), Export Issues as CSV... (`Ctrl+E`), Refresh (`F5`), Quit (`Ctrl+Q`).
+  - `Insert`: New Issue... (`Ctrl+Shift+I`), New Milestone..., Relation from Selected Issue... (palette form, `source` filled in).
+  - `Modify` (selected issue): Move To > six statuses, Priority > four levels, Edit Fields... (`task_issue_update` form, covers assignee, labels, estimate, due date), Open in Inspector.
+  - `Commands`: Run Git Sync, Drain Cross-App Inbox, Tool Palette... (`Ctrl+K`), Seed Demo Data (empty database only).
+  - `View`, `Edit`, `Window`, `Help`: from the shared bookend.
+- **Not built, on purpose:** Open Project, Open Recent, Save and Close Project. taskcraft keeps all projects in one SQLite database that writes every change immediately, so there is nothing to open, save or close; the project switcher is in the top bar. Check Blocker Cycles is not needed because `task_relation_add` refuses cycles on insert. Audit Capacity and Link Git Commit wait for tools that do not exist yet (capacity: Tier 8; manual commit link: not planned, git sync links commits by message). The single-key `C` shortcut is not bound, because it would fire inside text fields.

@@ -45,11 +45,13 @@ State checked against the code on 2026-11-14 (v0.1.4, `craft_biz_ui::bookend`):
 - [x] Help suite: the five dialogs (Command Palette, Keyboard Shortcuts, Project Files & Docs, Licenses & Notices, About) come from the shared bookend.
 - [x] Ctrl+wheel and Ctrl +/- zoom, dark/light theme, settings persisted.
 - [x] `--smoke` checks the menu spec and exits.
-- [ ] Insert, Modify and Commands menus (`Spec.middle` is empty today). The items are listed in PRD "Top Menu Bar Hierarchy".
-- [ ] File menu has only Refresh; New Project, Export CSV, Close and Quit are missing from it. Many Edit items are inert ("this window has no undo stack").
-- [ ] `switch_on_hover` between menus: not verified.
-- [ ] Tofu Guard verification (font glyph coverage): not verified.
-- [ ] Release packaging: exes as release assets, no zip-only download (fleet craft-app rule). The NSIS template is for the Python repos and does not apply here.
+- [x] Insert, Modify and Commands menus through `Spec.middle` (2026-11-15). Every item goes through `menu_action`, which calls the same `execute_*` functions and `dispatch` as the buttons. What was built and what was left out on purpose is in PRD "Top Menu Bar Hierarchy".
+- [x] File menu: New Project, Export Issues as CSV (new: UTF-8 with BOM, semicolons, for Excel in German locales), Refresh, Quit. The 0.1.3 CHANGELOG claimed a CSV export that did not exist; it does now. Edit items stay inert (no undo stack yet).
+- [x] `switch_on_hover` verified on the real bar with an egui_kittest test: File open, hover Commands, File closes, Commands opens, a Commands item runs through dispatch.
+- [x] Tofu Guard: test renders every menu title, item and hint with the craft fonts; a negative check proves the guard reports a missing glyph.
+- [x] `--smoke` checks taskcraft's real bar (with Insert, Modify and Commands), not the empty generic bookend.
+- [x] Release packaging: `scripts/release.ps1` ships `taskcraft.exe`, `taskcraft-cli.exe`, the setup exe, the mcpb bundle and SHA256SUMS as plain assets; the portable zip is only an extra. Verified from the dry-run output in `dist/` (2026-11-15 08:01). Not yet published as a GitHub release.
+- [ ] Edit menu: Undo and Redo need an undo stack (inert today, says so in the hint).
 - Note: the em dash in the `craft-biz-ui/src/bookend.rs` palette title was replaced with a hyphen on 2026-11-14. It was the only one in craft-biz.
 
 ---
