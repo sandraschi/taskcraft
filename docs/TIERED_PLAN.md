@@ -86,14 +86,17 @@ T5 Collaboration ──> T6 Iterations ──> T7 Timeline & CPM ──> T8 Port
 - [x] `people` table: free-text assignees backfilled (one person per distinct name, spelling variants merged). Assigning by name still works and finds or creates the person; `Issue.assignee` still returns the display name, so CLI, MCP and app output are unchanged.
 - [x] Events table rebuilt: nullable issue, `project_id`, typed `kind` (`issue.created`, `issue.updated`, `issue.moved`, `relation.added`, `relation.removed`, `commit.linked`; old rows `legacy`), `payload`.
 - [x] Criterion 1 test: real v1 fixture (`crates/taskcraft-store/tests/fixtures/v1.db`, made with the v0.1.4 CLI) migrates with every issue, relation, commit, label, milestone and event unchanged; 8 tests in `tests/migrate.rs`.
-- [ ] Comments on issues (markdown body, author, edit history, actor recorded as for every other change).
+- [x] Comments on issues (2026-11-16, `taskcraft-store/src/collab.rs`): author is the acting user's person; author-only edit and soft delete; `version` check against lost updates; typed `comment.added/edited/deleted` events with JSON payload. Criteria 2-4 tested through `call_tool`.
+- [x] People tools: `task_person_list`, `task_person_add` (handle validated or derived, unique teamcraft code).
 - [ ] Attachments as confined file references (`--allow-path`), stored by path + SHA-256, never copied into the DB.
-- [ ] `@mentions` and watchers; a per-user "my work" inbox view (assigned, mentioned, watched).
+- [x] `@mentions` and watchers: mentions of active people add a watcher; unknown handles are reported (`unknown_mentions`), never created; e-mail addresses are not mentions. `task_watch` starts or stops watching; `task_issue_show` returns comments and watchers.
+- [ ] Per-user "my work" view (assigned, mentioned, watched).
 - [ ] Parent/child hierarchy: epic -> issue -> subtask, with rollup of points and progress. Cycle-checked like `blocks`.
 - [ ] Issue templates per project (bug, feature, chore) and custom fields (text, number, date, single/multi select) stored as typed columns in a side table, not JSON blobs.
 - [ ] Saved filters / views, sharable as a named query.
 - [ ] Tools: `task_comment_add`, `task_comment_list`, `task_attach`, `task_watch`, `task_my_work`, `task_issue_reparent`, `task_template_*`, `task_field_*`, `task_view_*`.
-- [ ] UI: comment thread in the inspector, epic swimlane, "My work" screen.
+- [x] UI: comment thread in the inspector (watchers line, post box, Delete on own comments, warning toast for unknown mentions).
+- [ ] UI: epic swimlane, "My work" screen.
 
 ### Tier 6 - Iteration planning (sprints / cycles)
 - [ ] Sprints per project: name, start, end, goal, state (planned -> active -> closed). One active sprint per project.

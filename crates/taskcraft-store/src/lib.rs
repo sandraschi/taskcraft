@@ -14,7 +14,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, VecDeque};
 use std::path::Path;
 
+mod collab;
 mod migrate;
+pub use collab::{mention_handles, Comment, CommentResult, Person};
 pub use migrate::Migrated;
 
 /// Current schema. Raise it only together with a new entry in
@@ -134,6 +136,8 @@ pub struct CommitLink {
 pub struct Event {
     pub at: String,
     pub actor: String,
+    /// Typed kind (`issue.moved`, `comment.added`, ...; `legacy` before v2).
+    pub kind: String,
     pub what: String,
 }
 
@@ -144,6 +148,8 @@ pub struct IssueDetail {
     pub relations: Vec<Relation>,
     pub blocked_by_open: Vec<String>,
     pub commits: Vec<CommitLink>,
+    pub comments: Vec<Comment>,
+    pub watchers: Vec<Person>,
     pub history: Vec<Event>,
 }
 
@@ -289,14 +295,28 @@ fn insert_event(
     actor: &str,
     what: &str,
 ) -> Result<()> {
+    insert_event_with(conn, issue_id, kind, at, actor, what, None)
+}
+
+/// Same, with a JSON payload.
+fn insert_event_with(
+    conn: &Connection,
+    issue_id: i64,
+    kind: &str,
+    at: &str,
+    actor: &str,
+    what: &str,
+    payload: Option<&str>,
+) -> Result<()> {
     conn.execute(
-        "INSERT INTO events (project_id, issue_id, at, actor, kind, what)
-         VALUES ((SELECT project_id FROM issues WHERE id = ?1), ?1, ?2, ?3, ?4, ?5)",
+        "INSERT INTO events (project_id, issue_id, at, actor, kind, payload, what)
+         VALUES ((SELECT project_id FROM issues WHERE id = ?1), ?1, ?2, ?3, ?4, ?5, ?6)",
         params![
             issue_id,
             at,
             actor,
             kind,
+            payload,
             what.chars().take(1000).collect::<String>()
         ],
     )?;
@@ -1134,22 +1154,27 @@ impl Tracker {
             .collect::<std::result::Result<Vec<_>, _>>()?;
         let mut stmt = self
             .conn
-            .prepare("SELECT at, actor, what FROM events WHERE issue_id = ?1 ORDER BY id")?;
+            .prepare("SELECT at, actor, kind, what FROM events WHERE issue_id = ?1 ORDER BY id")?;
         let history = stmt
             .query_map(params![issue.id], |r| {
                 Ok(Event {
                     at: r.get(0)?,
                     actor: r.get(1)?,
-                    what: r.get(2)?,
+                    kind: r.get(2)?,
+                    what: r.get(3)?,
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         let blocked_by_open = self.open_blockers(issue.id)?;
+        let comments = self.comments(&issue.id.to_string())?;
+        let watchers = self.watchers(&issue.id.to_string())?;
         Ok(IssueDetail {
             issue,
             relations,
             blocked_by_open,
             commits,
+            comments,
+            watchers,
             history,
         })
     }

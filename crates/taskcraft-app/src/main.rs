@@ -107,6 +107,7 @@ struct App {
     new_label_input: String,
     new_rel_kind: RelationKind,
     new_rel_target: String,
+    new_comment: String,
 
     // Board filter and swimlanes
     filter_text: String,
@@ -176,6 +177,7 @@ impl App {
             new_label_input: String::new(),
             new_rel_kind: RelationKind::Blocks,
             new_rel_target: String::new(),
+            new_comment: String::new(),
 
             filter_text: String::new(),
             filter_priority: None,
@@ -593,6 +595,63 @@ impl App {
             Err(e) => {
                 self.toasts.err(format!("Relation failed: {e}"));
             }
+        }
+    }
+
+    /// Post the comment box on `issue` as the acting user.
+    fn execute_add_comment(&mut self, issue: &str) {
+        let body = self.new_comment.trim().to_string();
+        if body.is_empty() {
+            return;
+        }
+        match dispatch(
+            &mut self.ctx,
+            Command::CommentAdd {
+                issue: issue.to_string(),
+                body,
+            },
+        ) {
+            Ok(r) => {
+                self.new_comment.clear();
+                let unknown: Vec<String> = r["unknown_mentions"]
+                    .as_array()
+                    .map(|a| {
+                        a.iter()
+                            .filter_map(|v| v.as_str())
+                            .map(|h| format!("@{h}"))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                if unknown.is_empty() {
+                    self.toasts.ok(format!("Commented on {issue}"));
+                } else {
+                    self.toasts.push(
+                        format!(
+                            "Commented on {issue}; nobody is called {}",
+                            unknown.join(", ")
+                        ),
+                        Tone::Warn,
+                    );
+                }
+                self.load_issue_detail(issue);
+            }
+            Err(e) => self.toasts.err(format!("Comment failed: {e}")),
+        }
+    }
+
+    fn execute_delete_comment(&mut self, issue: &str, comment: i64, version: i64) {
+        match dispatch(
+            &mut self.ctx,
+            Command::CommentDelete {
+                comment,
+                version: Some(version),
+            },
+        ) {
+            Ok(_) => {
+                self.toasts.ok(format!("Deleted comment #{comment}"));
+                self.load_issue_detail(issue);
+            }
+            Err(e) => self.toasts.err(format!("Delete failed: {e}")),
         }
     }
 
@@ -1580,6 +1639,8 @@ impl App {
         let mut select_key = None;
         let mut remove_relation = None;
         let mut remove_label = None;
+        let mut post_comment = false;
+        let mut delete_comment: Option<(i64, i64)> = None;
 
         ui.horizontal(|ui| {
             ui.heading(
@@ -2065,6 +2126,62 @@ impl App {
             ui.add_space(12.0);
             ui.separator();
 
+            // Comments (Tier 5)
+            let live = detail.comments.iter().filter(|c| !c.deleted).count();
+            ui.heading(format!("Comments ({live})"));
+            if !detail.watchers.is_empty() {
+                let names: Vec<String> = detail
+                    .watchers
+                    .iter()
+                    .map(|p| format!("@{}", p.handle))
+                    .collect();
+                ui.label(
+                    RichText::new(format!("Watching: {}", names.join(", "))).color(t.text_weak),
+                );
+            }
+            let me = taskcraft_store::person_handle(&self.ctx.actor);
+            for c in &detail.comments {
+                egui::Frame::group(ui.style()).show(ui, |ui| {
+                    ui.set_width(ui.available_width());
+                    ui.horizontal(|ui| {
+                        widgets::pill(ui, &format!("@{}", c.author), Tone::Info);
+                        ui.label(RichText::new(&c.created_at).color(t.text_weak).size(11.0));
+                        if c.edited_at.is_some() {
+                            ui.label(RichText::new("edited").italics().color(t.text_weak));
+                        }
+                        if c.deleted {
+                            widgets::pill(ui, "Deleted", Tone::Neutral);
+                        } else if c.author == me && ui.small_button("Delete").clicked() {
+                            delete_comment = Some((c.id, c.version));
+                        }
+                    });
+                    let body = RichText::new(&c.body);
+                    ui.label(if c.deleted {
+                        body.strikethrough().color(t.text_weak)
+                    } else {
+                        body.color(t.text)
+                    });
+                });
+            }
+            ui.add(
+                egui::TextEdit::multiline(&mut self.new_comment)
+                    .hint_text("Write a comment. @handle mentions someone.")
+                    .desired_rows(3)
+                    .desired_width(f32::INFINITY),
+            );
+            if ui
+                .add_enabled(
+                    !self.new_comment.trim().is_empty(),
+                    egui::Button::new("Post Comment"),
+                )
+                .clicked()
+            {
+                post_comment = true;
+            }
+
+            ui.add_space(12.0);
+            ui.separator();
+
             // History
             ui.collapsing("⏱ Audit History", |ui| {
                 if detail.history.is_empty() {
@@ -2097,6 +2214,12 @@ impl App {
         }
         if let Some((src, kind, tgt)) = remove_relation {
             self.execute_remove_relation(&src, kind, &tgt);
+        }
+        if post_comment {
+            self.execute_add_comment(&issue.key);
+        }
+        if let Some((id, version)) = delete_comment {
+            self.execute_delete_comment(&issue.key, id, version);
         }
     }
 
@@ -3045,6 +3168,41 @@ mod tests {
         // The guard is live: a character no font ships is reported.
         let missing = craft_biz_ui::menu::missing_glyphs(&ctx, "ok \u{10fffd}");
         assert_eq!(missing, vec!['\u{10fffd}']);
+    }
+
+    /// Inspector comment thread: post (with an unknown mention), then delete.
+    #[test]
+    fn inspector_posts_and_deletes_comments() {
+        let mut app = memory_app();
+        app.new_project_key = "TC".to_string();
+        app.new_project_name = "Test".to_string();
+        app.execute_create_project();
+        app.new_issue_title = "Discuss".to_string();
+        app.new_issue_assignee = "Joe Mocky".to_string();
+        app.execute_create_issue();
+        app.new_comment = "  ".to_string();
+        app.execute_add_comment("TC-1");
+        assert_eq!(
+            app.selected_detail.as_ref().map(|d| d.comments.len()),
+            Some(0)
+        );
+
+        app.new_comment = "ping @joe-mocky and @nobody".to_string();
+        app.execute_add_comment("TC-1");
+        assert!(app.new_comment.is_empty(), "box cleared after posting");
+        let d = app.selected_detail.clone().expect("detail");
+        assert_eq!(d.comments.len(), 1);
+        assert_eq!(d.comments[0].mentions, vec!["joe-mocky"]);
+        assert_eq!(d.watchers.len(), 1);
+        assert!(app
+            .toasts
+            .latest()
+            .is_some_and(|(m, _)| m.contains("@nobody")));
+
+        let (id, v) = (d.comments[0].id, d.comments[0].version);
+        app.execute_delete_comment("TC-1", id, v);
+        let d = app.selected_detail.clone().expect("detail");
+        assert!(d.comments[0].deleted);
     }
 
     #[test]

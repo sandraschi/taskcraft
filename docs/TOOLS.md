@@ -22,3 +22,10 @@ is out of date. Every tool is also a CLI verb (`taskcraft --help`). Dotted names
 | `task_git_sync` | Read the project repo's git log, link commits mentioning KEY-n, close issues on 'closes/fixes/resolves KEY-n'. Needs --allow-path covering the repo. | `project` | `max` |
 | `task_inbox_drain` | Turn events from other craft apps (deskcraft ticket.escalated, contractcraft contract.deadline) into issues; teamcraft capacity.changed is stored per week and shown in task_status. | - | - |
 | `task_demo_seed` | Fill an EMPTY tracker with a labelled demo project. | - | - |
+| `task_person_list` | People (assignees, comment authors, mention targets) with their @handles. | - | `include_inactive` |
+| `task_person_add` | Add a person. handle (2-32 of a-z 0-9 . _ -) is derived from the name when omitted; teamcraft_code links the teamcraft employee. | `display_name` | `handle`, `teamcraft_code` |
+| `task_comment_add` | Comment on an issue as the acting user. @handle mentions a person and makes them a watcher; unknown handles are listed in unknown_mentions and the comment is still saved. | `issue`, `body` | - |
+| `task_comment_list` | Comments of an issue, oldest first. Deleted comments are included with deleted=true. | `issue` | - |
+| `task_comment_edit` | Edit your own comment. Pass the version you saw to refuse the edit if someone changed it meanwhile. | `comment`, `body` | `version` |
+| `task_comment_delete` | Delete your own comment (soft: flagged, body kept in history). | `comment` | `version` |
+| `task_watch` | Start (watch=true, default) or stop watching an issue for a person (@handle or name). | `issue`, `person` | `watch` |

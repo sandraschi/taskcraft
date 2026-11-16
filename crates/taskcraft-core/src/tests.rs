@@ -221,3 +221,237 @@ fn git_sync_links_and_closes_against_a_real_repo() {
         .contains("--allow-path"));
     let _ = std::fs::remove_dir_all(&repo);
 }
+
+// ---------- Tier 5: people, comments, mentions, watchers (PM_SPEC criteria 2-4) ----------
+
+fn demo_with_ana(tag: &str) -> Ctx {
+    let mut c = ctx(tag);
+    call(&mut c, "task_demo_seed", json!({})).unwrap();
+    let ana = call(
+        &mut c,
+        "task_person_add",
+        json!({ "display_name": "Ana Mockova", "handle": "ana" }),
+    )
+    .unwrap();
+    assert_eq!(ana["handle"], "ana");
+    c
+}
+
+fn handles(v: &Value) -> Vec<String> {
+    v.as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["handle"].as_str().unwrap_or_default().to_string())
+        .collect()
+}
+
+#[test]
+fn criterion_2_comment_mentions_and_watches() {
+    let mut c = demo_with_ana("crit2");
+    let r = call(
+        &mut c,
+        "task_comment_add",
+        json!({ "issue": "BC-5", "body": "ping @ana" }),
+    )
+    .unwrap();
+    assert_eq!(r["body"], "ping @ana");
+    assert_eq!(r["author"], "test");
+    assert_eq!(r["mentions"], json!(["ana"]));
+    assert_eq!(r["unknown_mentions"], json!([]));
+    assert_eq!(r["new_watchers"], json!(["ana"]));
+    assert_eq!(r["version"], 1);
+
+    let shown = call(&mut c, "task_issue_show", json!({ "issue": "BC-5" })).unwrap();
+    assert_eq!(shown["comments"].as_array().map(Vec::len), Some(1));
+    assert_eq!(handles(&shown["watchers"]), vec!["ana"]);
+    let last = shown["history"].as_array().unwrap().last().unwrap().clone();
+    assert_eq!(last["kind"], "comment.added");
+    assert_eq!(last["actor"], "test");
+
+    // A second mention of a watcher does not add her again.
+    let again = call(
+        &mut c,
+        "task_comment_add",
+        json!({ "issue": "BC-5", "body": "@Ana again, @ana." }),
+    )
+    .unwrap();
+    assert_eq!(again["mentions"], json!(["ana"]));
+    assert_eq!(again["new_watchers"], json!([]));
+}
+
+#[test]
+fn criterion_3_unknown_mention_is_reported_and_comment_saved() {
+    let mut c = demo_with_ana("crit3");
+    let r = call(
+        &mut c,
+        "task_comment_add",
+        json!({ "issue": "BC-5", "body": "ask @bob, mail bob@example.com" }),
+    )
+    .unwrap();
+    assert_eq!(
+        r["unknown_mentions"],
+        json!(["bob"]),
+        "the e-mail is not a mention"
+    );
+    assert_eq!(r["mentions"], json!([]));
+    let list = call(&mut c, "task_comment_list", json!({ "issue": "BC-5" })).unwrap();
+    assert_eq!(list["comments"].as_array().map(Vec::len), Some(1));
+    let people = call(&mut c, "task_person_list", json!({})).unwrap();
+    assert!(
+        !handles(&people["people"]).contains(&"bob".to_string()),
+        "bob is never created"
+    );
+}
+
+#[test]
+fn criterion_4_edit_and_soft_delete() {
+    let mut c = demo_with_ana("crit4");
+    let r = call(
+        &mut c,
+        "task_comment_add",
+        json!({ "issue": "BC-5", "body": "first draft" }),
+    )
+    .unwrap();
+    let id = r["id"].as_i64().unwrap();
+    let created = r["created_at"].clone();
+    assert!(r["edited_at"].is_null());
+
+    let ed = call(
+        &mut c,
+        "task_comment_edit",
+        json!({ "comment": id, "body": "second draft, cc @ana", "version": 1 }),
+    )
+    .unwrap();
+    assert_eq!(ed["created_at"], created);
+    assert!(ed["edited_at"].is_string());
+    assert_eq!(ed["version"], 2);
+    assert_eq!(ed["mentions"], json!(["ana"]));
+
+    // Stale version: refused, nothing changes.
+    let stale = call(
+        &mut c,
+        "task_comment_edit",
+        json!({ "comment": id, "body": "third", "version": 1 }),
+    )
+    .unwrap_err();
+    assert!(stale.contains("changed meanwhile"), "{stale}");
+
+    // Someone else may not edit or delete it.
+    c.actor = "Ana Mockova".into();
+    let other = call(&mut c, "task_comment_delete", json!({ "comment": id })).unwrap_err();
+    assert!(other.contains("only the author (@test)"), "{other}");
+    c.actor = "test".into();
+
+    let del = call(
+        &mut c,
+        "task_comment_delete",
+        json!({ "comment": id, "version": 2 }),
+    )
+    .unwrap();
+    assert_eq!(del["deleted"], true);
+    assert_eq!(del["version"], 3);
+    assert_eq!(del["body"], "second draft, cc @ana", "body kept");
+    let list = call(&mut c, "task_comment_list", json!({ "issue": "BC-5" })).unwrap();
+    assert_eq!(list["comments"][0]["deleted"], true);
+    assert_eq!(list["comments"][0]["body"], "second draft, cc @ana");
+    let gone = call(
+        &mut c,
+        "task_comment_edit",
+        json!({ "comment": id, "body": "x" }),
+    )
+    .unwrap_err();
+    assert!(gone.contains("deleted"), "{gone}");
+
+    let shown = call(&mut c, "task_issue_show", json!({ "issue": "BC-5" })).unwrap();
+    let kinds: Vec<&str> = shown["history"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|h| h["kind"].as_str())
+        .filter(|k| k.starts_with("comment."))
+        .collect();
+    assert_eq!(
+        kinds,
+        vec!["comment.added", "comment.edited", "comment.deleted"]
+    );
+}
+
+#[test]
+fn watch_and_people_rules() {
+    let mut c = demo_with_ana("watch");
+    let on = call(
+        &mut c,
+        "task_watch",
+        json!({ "issue": "BC-1", "person": "@ana" }),
+    )
+    .unwrap();
+    assert_eq!(on["changed"], true);
+    let twice = call(
+        &mut c,
+        "task_watch",
+        json!({ "issue": "BC-1", "person": "Ana Mockova" }),
+    )
+    .unwrap();
+    assert_eq!(twice["changed"], false);
+    let off = call(
+        &mut c,
+        "task_watch",
+        json!({ "issue": "BC-1", "person": "ana", "watch": false }),
+    )
+    .unwrap();
+    assert_eq!(off["changed"], true);
+    assert_eq!(off["watchers"], json!([]));
+    assert!(call(
+        &mut c,
+        "task_watch",
+        json!({ "issue": "BC-1", "person": "nobody" })
+    )
+    .is_err());
+
+    // Handles: explicit ones are validated, duplicates refused, names derive one.
+    assert!(call(
+        &mut c,
+        "task_person_add",
+        json!({ "display_name": "X", "handle": "Bad Handle" })
+    )
+    .is_err());
+    assert!(call(
+        &mut c,
+        "task_person_add",
+        json!({ "display_name": "Ana Two", "handle": "ana" })
+    )
+    .is_err());
+    let derived = call(
+        &mut c,
+        "task_person_add",
+        json!({ "display_name": "Jürgen Öhler", "teamcraft_code": "E-17" }),
+    )
+    .unwrap();
+    assert_eq!(derived["handle"], "juergen-oehler");
+    assert!(call(
+        &mut c,
+        "task_person_add",
+        json!({ "display_name": "Other", "teamcraft_code": "E-17" })
+    )
+    .is_err());
+    // Demo assignees are people too.
+    let people = call(&mut c, "task_person_list", json!({})).unwrap();
+    let hs = handles(&people["people"]);
+    assert!(hs.contains(&"joe-mocky".to_string()), "{hs:?}");
+}
+
+#[test]
+fn mention_parsing() {
+    use taskcraft_store::mention_handles;
+    assert_eq!(mention_handles("ping @ana"), vec!["ana"]);
+    assert_eq!(
+        mention_handles("@Ana, @joe-mocky. and @ana"),
+        vec!["ana", "joe-mocky"]
+    );
+    assert_eq!(
+        mention_handles("mail ana@example.com"),
+        Vec::<String>::new()
+    );
+    assert_eq!(mention_handles("@a and @ and @@x1"), vec!["x1"]);
+    assert_eq!(mention_handles("(@ana.b_c)"), vec!["ana.b_c"]);
+}

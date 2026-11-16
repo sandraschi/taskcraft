@@ -81,6 +81,35 @@ pub enum Command {
     },
     InboxDrain,
     DemoSeed,
+    PersonList {
+        include_inactive: bool,
+    },
+    PersonAdd {
+        display_name: String,
+        handle: Option<String>,
+        teamcraft_code: Option<String>,
+    },
+    CommentAdd {
+        issue: String,
+        body: String,
+    },
+    CommentList {
+        issue: String,
+    },
+    CommentEdit {
+        comment: i64,
+        body: String,
+        version: Option<i64>,
+    },
+    CommentDelete {
+        comment: i64,
+        version: Option<i64>,
+    },
+    Watch {
+        issue: String,
+        person: String,
+        on: bool,
+    },
 }
 
 // ---------- argument helpers ----------
@@ -141,6 +170,26 @@ fn priority(a: &Value) -> Result<Option<Priority>, String> {
     opt_s(a, "priority")
         .map(|p| Priority::parse(&p).map_err(e))
         .transpose()
+}
+/// Integer argument given as a JSON number or a numeric string.
+fn int(a: &Value, k: &str) -> Result<i64, String> {
+    opt_int(a, k)?.ok_or_else(|| format!("missing integer argument {k:?}"))
+}
+fn opt_int(a: &Value, k: &str) -> Result<Option<i64>, String> {
+    match a.get(k) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Number(n)) => n
+            .as_i64()
+            .map(Some)
+            .ok_or_else(|| format!("{k} must be an integer")),
+        Some(Value::String(s)) => s
+            .trim()
+            .trim_start_matches('#')
+            .parse()
+            .map(Some)
+            .map_err(|_| format!("{k} must be an integer")),
+        _ => Err(format!("{k} must be an integer")),
+    }
 }
 fn estimate(v: &Value) -> Result<i64, String> {
     v.as_i64()
@@ -277,6 +326,38 @@ impl Command {
             },
             "task_inbox_drain" => Command::InboxDrain,
             "task_demo_seed" => Command::DemoSeed,
+            "task_person_list" => Command::PersonList {
+                include_inactive: a
+                    .get("include_inactive")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false),
+            },
+            "task_person_add" => Command::PersonAdd {
+                display_name: s(a, "display_name")?.into(),
+                handle: opt_s(a, "handle"),
+                teamcraft_code: opt_s(a, "teamcraft_code"),
+            },
+            "task_comment_add" => Command::CommentAdd {
+                issue: s(a, "issue")?.into(),
+                body: s(a, "body")?.into(),
+            },
+            "task_comment_list" => Command::CommentList {
+                issue: s(a, "issue")?.into(),
+            },
+            "task_comment_edit" => Command::CommentEdit {
+                comment: int(a, "comment")?,
+                body: s(a, "body")?.into(),
+                version: opt_int(a, "version")?,
+            },
+            "task_comment_delete" => Command::CommentDelete {
+                comment: int(a, "comment")?,
+                version: opt_int(a, "version")?,
+            },
+            "task_watch" => Command::Watch {
+                issue: s(a, "issue")?.into(),
+                person: s(a, "person")?.into(),
+                on: a.get("watch").and_then(Value::as_bool).unwrap_or(true),
+            },
             other => return Err(format!("unknown tool {other}")),
         })
     }
@@ -350,6 +431,37 @@ pub fn dispatch(ctx: &mut Ctx, cmd: Command) -> Result<Value, String> {
         Command::Board { project } => board(t, &project),
         Command::GitSync { project, max } => git_sync(ctx, &project, max),
         Command::InboxDrain => inbox_drain(ctx),
+        Command::PersonList { include_inactive } => {
+            Ok(json!({ "people": to_json(&t.people(include_inactive).map_err(e)?)? }))
+        }
+        Command::PersonAdd {
+            display_name,
+            handle,
+            teamcraft_code,
+        } => to_json(
+            &t.add_person(&display_name, handle.as_deref(), teamcraft_code.as_deref())
+                .map_err(e)?,
+        ),
+        Command::CommentAdd { issue, body } => {
+            to_json(&t.add_comment(&issue, &body, &actor).map_err(e)?)
+        }
+        Command::CommentList { issue } => {
+            Ok(json!({ "issue": issue, "comments": to_json(&t.comments(&issue).map_err(e)?)? }))
+        }
+        Command::CommentEdit {
+            comment,
+            body,
+            version,
+        } => to_json(&t.edit_comment(comment, &body, version, &actor).map_err(e)?),
+        Command::CommentDelete { comment, version } => {
+            to_json(&t.delete_comment(comment, version, &actor).map_err(e)?)
+        }
+        Command::Watch { issue, person, on } => {
+            let changed = t.set_watch(&issue, &person, on, &actor).map_err(e)?;
+            Ok(
+                json!({ "issue": issue, "person": person, "watching": on, "changed": changed, "watchers": to_json(&t.watchers(&issue).map_err(e)?)? }),
+            )
+        }
         Command::DemoSeed => demo_seed(&mut ctx.tracker, &actor),
     }
 }
@@ -735,6 +847,13 @@ pub fn tools() -> Vec<Value> {
         tool("task_git_sync", "Read the project repo's git log, link commits mentioning KEY-n, close issues on 'closes/fixes/resolves KEY-n'. Needs --allow-path covering the repo.", json!({ "project": {"type":"string"}, "max": {"type":"integer"} }), &["project"]),
         tool("task_inbox_drain", "Turn events from other craft apps (deskcraft ticket.escalated, contractcraft contract.deadline) into issues; teamcraft capacity.changed is stored per week and shown in task_status.", json!({}), &[]),
         tool("task_demo_seed", "Fill an EMPTY tracker with a labelled demo project.", json!({}), &[]),
+        tool("task_person_list", "People (assignees, comment authors, mention targets) with their @handles.", json!({ "include_inactive": {"type":"boolean"} }), &[]),
+        tool("task_person_add", "Add a person. handle (2-32 of a-z 0-9 . _ -) is derived from the name when omitted; teamcraft_code links the teamcraft employee.", json!({ "display_name": {"type":"string"}, "handle": {"type":"string"}, "teamcraft_code": {"type":"string"} }), &["display_name"]),
+        tool("task_comment_add", "Comment on an issue as the acting user. @handle mentions a person and makes them a watcher; unknown handles are listed in unknown_mentions and the comment is still saved.", json!({ "issue": issue, "body": {"type":"string","description":"markdown"} }), &["issue", "body"]),
+        tool("task_comment_list", "Comments of an issue, oldest first. Deleted comments are included with deleted=true.", json!({ "issue": issue }), &["issue"]),
+        tool("task_comment_edit", "Edit your own comment. Pass the version you saw to refuse the edit if someone changed it meanwhile.", json!({ "comment": {"type":"integer"}, "body": {"type":"string"}, "version": {"type":"integer"} }), &["comment", "body"]),
+        tool("task_comment_delete", "Delete your own comment (soft: flagged, body kept in history).", json!({ "comment": {"type":"integer"}, "version": {"type":"integer"} }), &["comment"]),
+        tool("task_watch", "Start (watch=true, default) or stop watching an issue for a person (@handle or name).", json!({ "issue": issue, "person": {"type":"string"}, "watch": {"type":"boolean"} }), &["issue", "person"]),
     ]
 }
 

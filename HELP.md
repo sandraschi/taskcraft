@@ -40,6 +40,21 @@ taskcraft milestone list --project BC       # issues and points done / total
 taskcraft milestone close BC "v1.0 Release"
 ```
 
+## Comments, mentions and watchers
+
+```powershell
+taskcraft people add "Ana Mockova" --handle ana     # people list shows every @handle
+taskcraft comment add BC-5 "ping @ana"               # mentions Ana, she now watches BC-5
+taskcraft comment edit 1 "ping @ana, see BC-6" --version 1
+taskcraft comment delete 1                           # soft: flagged, the text stays in history
+taskcraft watch BC-5 joe-mocky                       # --stop to unwatch
+```
+
+- You comment as yourself (your OS user on the CLI, `agent` over MCP). Assignees are people too, so `@joe-mocky` works for the demo assignee.
+- An `@handle` nobody has is listed under `unknown_mentions`; the comment is saved anyway and nobody is created.
+- Only the author can edit or delete a comment. `--version` makes the change fail if the comment changed since you looked.
+- In the desktop app the inspector shows the thread, who watches, and a box to post; Delete appears on your own comments.
+
 ## Git
 
 ```powershell

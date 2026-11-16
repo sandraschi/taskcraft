@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Comments, @mentions and watchers (Tier 5). Tools `task_comment_add`, `task_comment_list`, `task_comment_edit`, `task_comment_delete`, `task_watch`, `task_person_list`, `task_person_add`; CLI `comment`, `watch`, `people`. Mentioning `@handle` makes that person a watcher; unknown handles are reported and nothing is created. Only the author edits or deletes; deleting is soft. Passing `version` refuses an edit if the comment changed meanwhile.
+- `task_issue_show` now includes comments and watchers, and every history entry has its `kind`.
+- Desktop inspector: comment thread with watchers, a post box and Delete on your own comments.
+
 - Database schema v2 (Tier 5 start). Opening an existing v1 database upgrades it automatically after saving a copy as `<db>.v1.bak`, and prints or shows where the copy is. Databases from a newer build are refused and left untouched.
 - Assignees are people now: each distinct name becomes one person (spelling variants such as `Joe Mocky` and `joe mocky` merge). Assigning by name works as before.
 - History events have a type (`issue.moved`, `commit.linked`, ...) and a project; events from before the upgrade are marked `legacy`.

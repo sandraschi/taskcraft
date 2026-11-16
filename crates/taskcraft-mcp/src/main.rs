@@ -161,6 +161,23 @@ enum Cmd {
     InboxDrain,
     /// Fill an empty tracker with the labelled demo project.
     DemoSeed,
+    /// Comments on issues: `taskcraft comment add BC-5 "ping @ana"`.
+    Comment {
+        #[command(subcommand)]
+        op: CommentOp,
+    },
+    /// Watch an issue (or stop with --stop): `taskcraft watch BC-5 @ana`.
+    Watch {
+        issue: String,
+        person: String,
+        #[arg(long)]
+        stop: bool,
+    },
+    /// People: assignees, comment authors, @mention targets.
+    People {
+        #[command(subcommand)]
+        op: PeopleOp,
+    },
     /// Print the MCP tool catalog (JSON, or markdown for docs/TOOLS.md).
     Tools {
         #[arg(long)]
@@ -178,6 +195,46 @@ enum ProjectOp {
         name: String,
         #[arg(long)]
         repo: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum CommentOp {
+    /// Comment as the acting user; @handle mentions and adds a watcher.
+    Add {
+        issue: String,
+        body: String,
+    },
+    List {
+        issue: String,
+    },
+    /// Edit your own comment; --version refuses it if it changed meanwhile.
+    Edit {
+        comment: i64,
+        body: String,
+        #[arg(long)]
+        version: Option<i64>,
+    },
+    /// Soft delete: flagged, the body stays in history.
+    Delete {
+        comment: i64,
+        #[arg(long)]
+        version: Option<i64>,
+    },
+}
+
+#[derive(Subcommand)]
+enum PeopleOp {
+    List {
+        #[arg(long)]
+        all: bool,
+    },
+    Add {
+        display_name: String,
+        #[arg(long)]
+        handle: Option<String>,
+        #[arg(long)]
+        teamcraft_code: Option<String>,
     },
 }
 
@@ -388,6 +445,54 @@ fn to_tool(cmd: Cmd) -> Result<(&'static str, Value), String> {
         }
         Cmd::InboxDrain => ("task_inbox_drain", json!({})),
         Cmd::DemoSeed => ("task_demo_seed", json!({})),
+        Cmd::Comment { op } => match op {
+            CommentOp::Add { issue, body } => {
+                ("task_comment_add", json!({ "issue": issue, "body": body }))
+            }
+            CommentOp::List { issue } => ("task_comment_list", json!({ "issue": issue })),
+            CommentOp::Edit {
+                comment,
+                body,
+                version,
+            } => (
+                "task_comment_edit",
+                obj(vec![
+                    ("comment", Some(json!(comment))),
+                    ("body", sv(&body)),
+                    ("version", version.map(|v| json!(v))),
+                ]),
+            ),
+            CommentOp::Delete { comment, version } => (
+                "task_comment_delete",
+                obj(vec![
+                    ("comment", Some(json!(comment))),
+                    ("version", version.map(|v| json!(v))),
+                ]),
+            ),
+        },
+        Cmd::Watch {
+            issue,
+            person,
+            stop,
+        } => (
+            "task_watch",
+            json!({ "issue": issue, "person": person, "watch": !stop }),
+        ),
+        Cmd::People { op } => match op {
+            PeopleOp::List { all } => ("task_person_list", json!({ "include_inactive": all })),
+            PeopleOp::Add {
+                display_name,
+                handle,
+                teamcraft_code,
+            } => (
+                "task_person_add",
+                obj(vec![
+                    ("display_name", sv(&display_name)),
+                    ("handle", os(handle)),
+                    ("teamcraft_code", os(teamcraft_code)),
+                ]),
+            ),
+        },
         Cmd::Tools { .. } | Cmd::Mcp => return Err("not a tool verb".into()),
     })
 }
@@ -621,7 +726,12 @@ mod tests {
         assert_eq!(init["result"]["serverInfo"]["name"], "taskcraft");
         let list =
             handle_line(&mut h, r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#).unwrap();
-        assert_eq!(list["result"]["tools"].as_array().map(Vec::len), Some(17));
+        // tools/list serves the whole catalog (24 tools as of Tier 5 comments).
+        assert_eq!(
+            list["result"]["tools"].as_array().map(Vec::len),
+            Some(tools().len())
+        );
+        assert!(tools().len() >= 24);
         let seed = handle_line(&mut h, r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"task_demo_seed","arguments":{}}}"#).unwrap();
         assert_eq!(seed["result"]["isError"], false);
         let board = handle_line(&mut h, r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"task.board","arguments":{"project":"BC"}}}"#).unwrap();
