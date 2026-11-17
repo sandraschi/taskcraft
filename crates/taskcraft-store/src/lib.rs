@@ -15,8 +15,10 @@ use std::collections::{HashSet, VecDeque};
 use std::path::Path;
 
 mod collab;
+mod hierarchy;
 mod migrate;
 pub use collab::{mention_handles, Comment, CommentResult, Person};
+pub use hierarchy::Rollup;
 pub use migrate::Migrated;
 
 /// Current schema. Raise it only together with a new entry in
@@ -67,6 +69,7 @@ macro_rules! str_enum {
 str_enum!(Status { Backlog => "backlog", Todo => "todo", InProgress => "in_progress", InReview => "in_review", Done => "done", Canceled => "canceled" });
 str_enum!(Priority { Low => "low", Medium => "medium", High => "high", Urgent => "urgent" });
 str_enum!(RelationKind { Blocks => "blocks", RelatesTo => "relates_to", Duplicates => "duplicates" });
+str_enum!(IssueKind { Epic => "epic", Story => "story", Task => "task", Bug => "bug", Subtask => "subtask" });
 
 impl Status {
     pub fn is_finished(self) -> bool {
@@ -104,6 +107,9 @@ pub struct Issue {
     pub description: String,
     pub status: Status,
     pub priority: Priority,
+    pub kind: IssueKind,
+    /// Parent issue key (same project).
+    pub parent: Option<String>,
     pub estimate: Option<i64>,
     pub assignee: Option<String>,
     pub milestone: Option<String>,
@@ -148,6 +154,10 @@ pub struct IssueDetail {
     pub relations: Vec<Relation>,
     pub blocked_by_open: Vec<String>,
     pub commits: Vec<CommitLink>,
+    /// Direct children (keys).
+    pub children: Vec<String>,
+    /// Points and progress over all descendants; absent without children.
+    pub rollup: Option<Rollup>,
     pub comments: Vec<Comment>,
     pub watchers: Vec<Person>,
     pub history: Vec<Event>,
@@ -176,6 +186,12 @@ pub struct NewIssue {
     pub status: Option<Status>,
     #[serde(default)]
     pub priority: Option<Priority>,
+    /// Default `task`.
+    #[serde(default)]
+    pub kind: Option<IssueKind>,
+    /// Parent issue key; checked like `task_issue_reparent`.
+    #[serde(default)]
+    pub parent: Option<String>,
     #[serde(default)]
     pub estimate: Option<i64>,
     #[serde(default)]
@@ -193,6 +209,7 @@ pub struct NewIssue {
 pub struct IssuePatch {
     pub title: Option<String>,
     pub description: Option<String>,
+    pub kind: Option<IssueKind>,
     pub priority: Option<Priority>,
     pub estimate: Option<Option<i64>>,
     pub assignee: Option<Option<String>>,
@@ -708,6 +725,13 @@ impl Tracker {
             .map(|m| self.milestone_id(p.id, m))
             .transpose()?;
         let status = n.status.unwrap_or(Status::Backlog);
+        let kind = n.kind.unwrap_or(IssueKind::Task);
+        let parent_id = n
+            .parent
+            .as_deref()
+            .filter(|s| !s.trim().is_empty())
+            .map(|par| self.check_parent(p.id, None, kind, par))
+            .transpose()?;
         let tx = self.conn.transaction()?;
         let assignee_id = match n.assignee.as_deref() {
             Some(a) => person_id_for(&tx, a)?,
@@ -720,12 +744,13 @@ impl Tracker {
         )?;
         let ts = now();
         tx.execute(
-            "INSERT INTO issues (project_id, number, title, description, status, priority, estimate, assignee_id, milestone_id, due_date, created_at, updated_at, closed_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11, ?12)",
+            "INSERT INTO issues (project_id, number, title, description, status, priority, estimate, assignee_id, milestone_id, due_date, created_at, updated_at, closed_at, kind, parent_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11, ?12, ?13, ?14)",
             params![
                 p.id, number, title, description, status.as_str(), n.priority.unwrap_or(Priority::Medium).as_str(),
                 n.estimate, assignee_id, milestone_id, n.due_date.map(d2s), ts,
-                if status.is_finished() { Some(ts.clone()) } else { None }
+                if status.is_finished() { Some(ts.clone()) } else { None },
+                kind.as_str(), parent_id
             ],
         )?;
         let id = tx.last_insert_rowid();
@@ -768,11 +793,13 @@ impl Tracker {
     }
 
     const ISSUE_SELECT: &'static str = "SELECT i.id, p.key, i.number, i.title, i.description, i.status, i.priority, i.estimate, ppl.display_name,
-        m.title, i.due_date, i.created_at, i.updated_at, i.closed_at
+        m.title, i.due_date, i.created_at, i.updated_at, i.closed_at, i.kind,
+        CASE WHEN i.parent_id IS NULL THEN NULL
+             ELSE p.key || '-' || (SELECT pi.number FROM issues pi WHERE pi.id = i.parent_id) END
         FROM issues i JOIN projects p ON p.id = i.project_id LEFT JOIN milestones m ON m.id = i.milestone_id
         LEFT JOIN people ppl ON ppl.id = i.assignee_id";
 
-    fn row_to_issue(r: &rusqlite::Row<'_>) -> rusqlite::Result<(Issue, String, String)> {
+    fn row_to_issue(r: &rusqlite::Row<'_>) -> rusqlite::Result<(Issue, String, String, String)> {
         let key: String = r.get(1)?;
         let number: i64 = r.get(2)?;
         Ok((
@@ -785,6 +812,8 @@ impl Tracker {
                 description: r.get(4)?,
                 status: Status::Backlog,
                 priority: Priority::Medium,
+                kind: IssueKind::Task,
+                parent: r.get(15)?,
                 estimate: r.get(7)?,
                 assignee: r.get(8)?,
                 milestone: r.get(9)?,
@@ -796,12 +825,17 @@ impl Tracker {
             },
             r.get(5)?,
             r.get(6)?,
+            r.get(14)?,
         ))
     }
 
-    fn finish_issue(&self, (mut i, status, priority): (Issue, String, String)) -> Result<Issue> {
+    fn finish_issue(
+        &self,
+        (mut i, status, priority, kind): (Issue, String, String, String),
+    ) -> Result<Issue> {
         i.status = Status::parse(&status)?;
         i.priority = Priority::parse(&priority)?;
+        i.kind = IssueKind::parse(&kind)?;
         let mut stmt = self
             .conn
             .prepare("SELECT label FROM issue_labels WHERE issue_id = ?1 ORDER BY label")?;
@@ -884,8 +918,20 @@ impl Tracker {
             Some(None) => Some(None),
             None => None,
         };
+        if let Some(k) = patch.kind {
+            if k != cur.kind {
+                self.check_kind_change(cur.id, k)?;
+            }
+        }
         let tx = self.conn.transaction()?;
         let ts = now();
+        if let Some(k) = patch.kind.filter(|k| *k != cur.kind) {
+            tx.execute(
+                "UPDATE issues SET kind = ?1 WHERE id = ?2",
+                params![k.as_str(), cur.id],
+            )?;
+            changes.push(format!("kind -> {}", k.as_str()));
+        }
         if let Some(t) = &tx_title {
             tx.execute(
                 "UPDATE issues SET title = ?1 WHERE id = ?2",
@@ -1168,11 +1214,15 @@ impl Tracker {
         let blocked_by_open = self.open_blockers(issue.id)?;
         let comments = self.comments(&issue.id.to_string())?;
         let watchers = self.watchers(&issue.id.to_string())?;
+        let children = self.children(issue.id)?;
+        let rollup = self.rollup(issue.id)?;
         Ok(IssueDetail {
             issue,
             relations,
             blocked_by_open,
             commits,
+            children,
+            rollup,
             comments,
             watchers,
             history,

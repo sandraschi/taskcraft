@@ -25,7 +25,7 @@ Not targeted: enterprise resource pools, portfolio finance, hosted multi-tenant 
 | 3 | egui workstation: Kanban, table, inspector, milestones, git, history, palette, signals dock | Done |
 | 4 | Menu bar, Help, packaging | Done 2026-11-15 except Undo/Redo (no undo stack) and publishing a GitHub release. Full bar with Insert/Modify/Commands, CSV export, hover and tofu tests, smoke on the real bar, release script verified by dry run |
 | 4b | Skills (bundled, served over MCP) + in-app chat with skills as preprompt; fleet pilot of `CRAFT_SKILLS_AND_CHAT_STANDARD.md` | Planned (needs shared crates first, about 2-2.5 days fleet-wide + 0.25 day here) |
-| 5 | Collaboration: migration runner, people, comments, attachments, epics, templates, custom fields, saved views | Started 2026-11-15: migration runner and full schema v2 (people, typed events, all new tables), criterion 1 tested on a real v1 fixture. 2026-11-16: comments, mentions, watchers, people tools and inspector thread (criteria 2-4). Still to do: attachments, hierarchy and rollup, custom fields, templates, saved views, My work, epic swimlane |
+| 5 | Collaboration: migration runner, people, comments, attachments, epics, templates, custom fields, saved views | Started 2026-11-15: migration runner and full schema v2 (people, typed events, all new tables), criterion 1 tested on a real v1 fixture. 2026-11-16: comments, mentions, watchers, people tools and inspector thread (criteria 2-4). 2026-11-17: hierarchy and rollup (criteria 6-7). Still to do: attachments, custom fields, templates, saved views, My work, epic swimlane |
 | 6 | Sprints against teamcraft capacity, burndown, velocity | Planned |
 | 7 | Scheduler (CPM, FS/SS/FF + lag, AT calendar), Gantt widget, baselines, forecast | Started. Scheduler core in `taskcraft-core::schedule` (10 tests, fixtures A-D), and Gantt widget in `egui_gantt` with the `craft-biz-ui::gantt` style (41 tests). Not wired: needs the v2-v4 schema (Tier 5 migration runner first) |
 | 8 | Portfolio, programs, workload, actual hours, health, billing to billcraft | Planned |
@@ -59,7 +59,7 @@ Estimates (AI-assisted): Tiers 5-9 about 9-14 days, Tier 10 about 2-3 days.
 
 ## 5. Immediate next steps (in order)
 
-1. Tier 5 features on the v2 tables. Done: migration runner and schema v2 (2026-11-15), comments with mentions and watchers (criteria 2-4, 2026-11-16). Next: hierarchy and rollup (6-7), attachments (5), custom fields (8), templates (9), saved views (10), rest of the UI (11). New schema changes go into `crates/taskcraft-store/src/migrate.rs` as v3, v4, ...; never edit `SCHEMA_V1` or `tests/fixtures/v1.db`.
+1. Tier 5 features on the v2 tables. Done: migration runner and schema v2 (2026-11-15), comments with mentions and watchers (criteria 2-4, 2026-11-16), hierarchy and rollup (6-7, 2026-11-17). Next: attachments (5), custom fields (8), templates (9), saved views (10), rest of the UI (11). New schema changes go into `crates/taskcraft-store/src/migrate.rs` as v3, v4, ...; never edit `SCHEMA_V1` or `tests/fixtures/v1.db`.
 2. Tier 4b can go in parallel once craft-ai has `craft-skills`, the `complete()` / `chat()` fixes and `craft-ai-ui` (plan: `craft-ai/docs/CHAT_AND_SKILLS.md`). Write the four skills early: they help agents even before the chat exists.
 3. Tier 5 item 1: migration runner + v1 fixture DB + tests (PM_SPEC section 1).
 4. Tier 5 rest, test by test from PM_SPEC section 3.

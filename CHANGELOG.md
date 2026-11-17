@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Epics, stories and subtasks (Tier 5). Issues have a kind (epic, story, task, bug, subtask) and an optional parent in the same project. `task_issue_reparent` / `taskcraft reparent BC-7 BC-11` (or `--detach`); `--kind` and `--parent` on `new`, `--kind` on `update`. Cycles, epics with a parent, anything under a subtask and cross-project parents are refused.
+- `task_issue_show` returns the children and a rollup: points and percent done over all descendants (canceled excluded; by issue count when nothing has points).
+- Desktop inspector: kind pill and selector, parent link with Set Parent / Detach, clickable children, rollup progress bar.
+
 - Comments, @mentions and watchers (Tier 5). Tools `task_comment_add`, `task_comment_list`, `task_comment_edit`, `task_comment_delete`, `task_watch`, `task_person_list`, `task_person_add`; CLI `comment`, `watch`, `people`. Mentioning `@handle` makes that person a watcher; unknown handles are reported and nothing is created. Only the author edits or deletes; deleting is soft. Passing `version` refuses an edit if the comment changed meanwhile.
 - `task_issue_show` now includes comments and watchers, and every history entry has its `kind`.
 - Desktop inspector: comment thread with watchers, a post box and Delete on your own comments.

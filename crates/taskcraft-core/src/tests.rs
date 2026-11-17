@@ -455,3 +455,225 @@ fn mention_parsing() {
     assert_eq!(mention_handles("@a and @ and @@x1"), vec!["x1"]);
     assert_eq!(mention_handles("(@ana.b_c)"), vec!["ana.b_c"]);
 }
+
+// ---------- Tier 5: hierarchy and rollup (PM_SPEC criteria 6-7) ----------
+
+/// TC: E epic, S story under E (5 points, done), T subtask under S (3 points).
+fn tree(tag: &str) -> Ctx {
+    let mut c = ctx(tag);
+    call(
+        &mut c,
+        "task_project_create",
+        json!({ "key": "TC", "name": "Tree" }),
+    )
+    .unwrap();
+    call(
+        &mut c,
+        "task_project_create",
+        json!({ "key": "OT", "name": "Other" }),
+    )
+    .unwrap();
+    let e = call(
+        &mut c,
+        "task_issue_create",
+        json!({ "project": "TC", "title": "Epic", "kind": "epic" }),
+    )
+    .unwrap();
+    assert_eq!(
+        (e["key"].as_str(), e["kind"].as_str()),
+        (Some("TC-1"), Some("epic"))
+    );
+    let s = call(
+        &mut c,
+        "task_issue_create",
+        json!({ "project": "TC", "title": "Story", "kind": "story", "parent": "TC-1", "estimate": 5, "status": "done" }),
+    )
+    .unwrap();
+    assert_eq!(s["parent"], "TC-1");
+    let t = call(
+        &mut c,
+        "task_issue_create",
+        json!({ "project": "TC", "title": "Subtask", "kind": "subtask", "parent": "TC-2", "estimate": 3 }),
+    )
+    .unwrap();
+    assert_eq!(t["parent"], "TC-2");
+    call(
+        &mut c,
+        "task_issue_create",
+        json!({ "project": "OT", "title": "Elsewhere" }),
+    )
+    .unwrap();
+    c
+}
+
+fn history_len(c: &mut Ctx, key: &str) -> usize {
+    let d = call(c, "task_issue_show", json!({ "issue": key })).unwrap();
+    d["history"].as_array().map_or(0, Vec::len)
+}
+
+/// Rejected = typed error, parent unchanged, no history written.
+fn assert_rejected(c: &mut Ctx, issue: &str, parent: Value, needle: &str) {
+    let before = call(c, "task_issue_show", json!({ "issue": issue })).unwrap();
+    let h = history_len(c, issue);
+    let err = call(
+        c,
+        "task_issue_reparent",
+        json!({ "issue": issue, "parent": parent }),
+    )
+    .unwrap_err();
+    assert!(err.contains(needle), "{issue} under {parent}: {err}");
+    let after = call(c, "task_issue_show", json!({ "issue": issue })).unwrap();
+    assert_eq!(after["parent"], before["parent"]);
+    assert_eq!(history_len(c, issue), h);
+}
+
+#[test]
+fn criterion_6_hierarchy_rules() {
+    let mut c = tree("crit6");
+    let e = call(&mut c, "task_issue_show", json!({ "issue": "TC-1" })).unwrap();
+    assert_eq!(e["children"], json!(["TC-2"]));
+
+    assert_rejected(&mut c, "TC-1", json!("TC-3"), "epic cannot have a parent");
+    assert_rejected(
+        &mut c,
+        "TC-2",
+        json!("TC-3"),
+        "nothing can go under a subtask",
+    );
+    assert_rejected(&mut c, "TC-2", json!("OT-1"), "another project");
+    assert_rejected(&mut c, "TC-2", json!("TC-2"), "cycle");
+    // Subtask under subtask, at creation.
+    let err = call(
+        &mut c,
+        "task_issue_create",
+        json!({ "project": "TC", "title": "Deeper", "kind": "subtask", "parent": "TC-3" }),
+    )
+    .unwrap_err();
+    assert!(err.contains("under a subtask"), "{err}");
+
+    // A real cycle between stories: A under B, then B under A.
+    call(
+        &mut c,
+        "task_issue_create",
+        json!({ "project": "TC", "title": "A", "kind": "story" }),
+    )
+    .unwrap();
+    call(
+        &mut c,
+        "task_issue_create",
+        json!({ "project": "TC", "title": "B", "kind": "story" }),
+    )
+    .unwrap();
+    call(
+        &mut c,
+        "task_issue_reparent",
+        json!({ "issue": "TC-4", "parent": "TC-5" }),
+    )
+    .unwrap();
+    assert_rejected(&mut c, "TC-5", json!("TC-4"), "cycle");
+    // Kind changes that would break the rules.
+    let err = call(
+        &mut c,
+        "task_issue_update",
+        json!({ "issue": "TC-2", "kind": "epic" }),
+    )
+    .unwrap_err();
+    assert!(err.contains("epic cannot have a parent"), "{err}");
+    let err = call(
+        &mut c,
+        "task_issue_update",
+        json!({ "issue": "TC-2", "kind": "subtask" }),
+    )
+    .unwrap_err();
+    assert!(err.contains("cannot have children"), "{err}");
+    // Detaching works and is recorded.
+    let r = call(
+        &mut c,
+        "task_issue_reparent",
+        json!({ "issue": "TC-4", "parent": null }),
+    )
+    .unwrap();
+    assert!(r["issue"]["parent"].is_null());
+    let d = call(&mut c, "task_issue_show", json!({ "issue": "TC-4" })).unwrap();
+    let last = d["history"].as_array().unwrap().last().unwrap().clone();
+    assert_eq!(last["kind"], "issue.reparented");
+    assert!(
+        call(&mut c, "task_issue_reparent", json!({ "issue": "TC-4" })).is_err(),
+        "parent is required (null detaches)"
+    );
+}
+
+#[test]
+fn criterion_7_rollup() {
+    let mut c = tree("crit7");
+    let e = call(&mut c, "task_issue_show", json!({ "issue": "TC-1" })).unwrap();
+    let r = &e["rollup"];
+    assert_eq!(r["points"], 8);
+    assert_eq!(r["points_done"], 5);
+    assert_eq!(r["percent_done"], 62.5);
+    assert_eq!(r["basis"], "points");
+    assert_eq!(
+        (r["issues"].as_i64(), r["issues_done"].as_i64()),
+        (Some(2), Some(1))
+    );
+    // The story rolls up only its own descendants.
+    let s = call(&mut c, "task_issue_show", json!({ "issue": "TC-2" })).unwrap();
+    assert_eq!(
+        (
+            s["rollup"]["points"].as_i64(),
+            s["rollup"]["percent_done"].as_f64()
+        ),
+        (Some(3), Some(0.0))
+    );
+    // Leaves have no rollup.
+    let t = call(&mut c, "task_issue_show", json!({ "issue": "TC-3" })).unwrap();
+    assert!(t["rollup"].is_null());
+    // Canceled work does not count.
+    call(
+        &mut c,
+        "task_issue_create",
+        json!({ "project": "TC", "title": "Dropped", "kind": "subtask", "parent": "TC-2", "estimate": 10, "status": "canceled" }),
+    )
+    .unwrap();
+    let e = call(&mut c, "task_issue_show", json!({ "issue": "TC-1" })).unwrap();
+    assert_eq!(e["rollup"]["points"], 8);
+    // Detaching the open subtask leaves E at 5 of 5; reparent reports the rollup.
+    let moved = call(
+        &mut c,
+        "task_issue_reparent",
+        json!({ "issue": "TC-3", "parent": "TC-1" }),
+    )
+    .unwrap();
+    assert_eq!(moved["parent_rollup"]["points"], 8);
+    call(
+        &mut c,
+        "task_issue_reparent",
+        json!({ "issue": "TC-3", "parent": null }),
+    )
+    .unwrap();
+    let e = call(&mut c, "task_issue_show", json!({ "issue": "TC-1" })).unwrap();
+    assert_eq!(e["rollup"]["percent_done"], 100.0);
+    // Without points the percentage is by issue count.
+    call(
+        &mut c,
+        "task_issue_create",
+        json!({ "project": "TC", "title": "E2", "kind": "epic" }),
+    )
+    .unwrap();
+    for (title, status) in [("x", "done"), ("y", "todo"), ("z", "todo"), ("w", "done")] {
+        call(
+            &mut c,
+            "task_issue_create",
+            json!({ "project": "TC", "title": title, "parent": "TC-5", "status": status }),
+        )
+        .unwrap();
+    }
+    let e2 = call(&mut c, "task_issue_show", json!({ "issue": "TC-5" })).unwrap();
+    assert_eq!(
+        (
+            e2["rollup"]["basis"].as_str(),
+            e2["rollup"]["percent_done"].as_f64()
+        ),
+        (Some("issues"), Some(50.0))
+    );
+}

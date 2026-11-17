@@ -91,7 +91,8 @@ T5 Collaboration ──> T6 Iterations ──> T7 Timeline & CPM ──> T8 Port
 - [ ] Attachments as confined file references (`--allow-path`), stored by path + SHA-256, never copied into the DB.
 - [x] `@mentions` and watchers: mentions of active people add a watcher; unknown handles are reported (`unknown_mentions`), never created; e-mail addresses are not mentions. `task_watch` starts or stops watching; `task_issue_show` returns comments and watchers.
 - [ ] Per-user "my work" view (assigned, mentioned, watched).
-- [ ] Parent/child hierarchy: epic -> issue -> subtask, with rollup of points and progress. Cycle-checked like `blocks`.
+- [x] Parent/child hierarchy (2026-11-17, `taskcraft-store/src/hierarchy.rs`): issue `kind` (epic, story, task, bug, subtask) and `parent`; `task_issue_reparent` (null detaches), `kind`/`parent` on create, `kind` on update. Refused, with nothing written: cycles, an epic with a parent, anything under a subtask, cross-project parents, kind changes that would break those rules. Criterion 6 tested.
+- [x] Rollup in `task_issue_show`: points and percent done over all descendants, canceled excluded, by issue count when nothing has points. Criterion 7 fixture gives 8 points and 62.5 %. Inspector shows kind, parent, children and a progress bar.
 - [ ] Issue templates per project (bug, feature, chore) and custom fields (text, number, date, single/multi select) stored as typed columns in a side table, not JSON blobs.
 - [ ] Saved filters / views, sharable as a named query.
 - [ ] Tools: `task_comment_add`, `task_comment_list`, `task_attach`, `task_watch`, `task_my_work`, `task_issue_reparent`, `task_template_*`, `task_field_*`, `task_view_*`.

@@ -8,10 +8,11 @@ is out of date. Every tool is also a CLI verb (`taskcraft --help`). Dotted names
 | `task_status` | Tracker status: counts (open, in progress, urgent, overdue), projects, demo flag. | - | - |
 | `task_project_create` | Create a project with a 2-10 char key (issues become KEY-n). Optional repo_path enables git sync. | `key`, `name` | `repo_path` |
 | `task_project_list` | List projects. | - | - |
-| `task_issue_create` | Create an issue. | `project`, `title` | `assignee`, `description`, `due_date`, `estimate`, `labels`, `milestone`, `priority`, `status` |
+| `task_issue_create` | Create an issue. kind defaults to task; parent puts it under an epic, story, task or bug of the same project (not under a subtask; an epic has no parent). | `project`, `title` | `assignee`, `description`, `due_date`, `estimate`, `kind`, `labels`, `milestone`, `parent`, `priority`, `status` |
 | `task_issue_list` | List issues, urgent first. Finished issues are hidden unless include_finished or an explicit status filter. | - | `include_finished`, `label`, `limit`, `milestone`, `priority`, `project`, `status`, `text` |
-| `task_issue_show` | One issue with relations, open blockers, linked commits and full history. | `issue` | - |
-| `task_issue_update` | Change fields. Pass null to clear estimate/assignee/milestone/due_date. labels replaces the set. | `issue` | `assignee`, `description`, `due_date`, `estimate`, `labels`, `milestone`, `priority`, `title` |
+| `task_issue_show` | One issue with relations, open blockers, linked commits, children, rollup (points and percent done over all descendants, canceled excluded), comments, watchers and full history. | `issue` | - |
+| `task_issue_reparent` | Put an issue under a parent in the same project, or detach it with parent=null. Refused: cycles, an epic with a parent, anything under a subtask, cross-project parents. | `issue`, `parent` | - |
+| `task_issue_update` | Change fields. Pass null to clear estimate/assignee/milestone/due_date. labels replaces the set. Changing kind to epic needs no parent; to subtask needs no children. | `issue` | `assignee`, `description`, `due_date`, `estimate`, `kind`, `labels`, `milestone`, `priority`, `title` |
 | `task_issue_move` | Change status. Moving to in_progress/in_review/done is refused while an open issue blocks it, unless force=true. | `issue`, `status` | `force` |
 | `task_relation_add` | Relate two issues. 'blocks' edges may not form a cycle. | `source`, `kind`, `target` | - |
 | `task_relation_remove` | Remove a relation. | `source`, `kind`, `target` | - |

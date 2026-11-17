@@ -62,6 +62,12 @@ enum Cmd {
         status: Option<String>,
         #[arg(long)]
         priority: Option<String>,
+        /// epic, story, task (default), bug, subtask.
+        #[arg(long)]
+        kind: Option<String>,
+        /// Parent issue key in the same project.
+        #[arg(long)]
+        parent: Option<String>,
         #[arg(long)]
         estimate: Option<i64>,
         #[arg(long)]
@@ -73,6 +79,13 @@ enum Cmd {
         /// Comma list.
         #[arg(long)]
         labels: Option<String>,
+    },
+    /// Put an issue under a parent (`taskcraft reparent BC-7 BC-3`) or detach it (--detach).
+    Reparent {
+        issue: String,
+        parent: Option<String>,
+        #[arg(long, conflicts_with = "parent")]
+        detach: bool,
     },
     /// List issues (finished hidden unless --all or --status).
     List {
@@ -105,6 +118,8 @@ enum Cmd {
         description: Option<String>,
         #[arg(long)]
         priority: Option<String>,
+        #[arg(long)]
+        kind: Option<String>,
         #[arg(long)]
         estimate: Option<i64>,
         #[arg(long)]
@@ -317,6 +332,8 @@ fn to_tool(cmd: Cmd) -> Result<(&'static str, Value), String> {
             description,
             status,
             priority,
+            kind,
+            parent,
             estimate,
             assignee,
             milestone,
@@ -330,6 +347,8 @@ fn to_tool(cmd: Cmd) -> Result<(&'static str, Value), String> {
                 ("description", os(description)),
                 ("status", os(status)),
                 ("priority", os(priority)),
+                ("kind", os(kind)),
+                ("parent", os(parent)),
                 ("estimate", estimate.map(|e| json!(e))),
                 ("assignee", os(assignee)),
                 ("milestone", os(milestone)),
@@ -360,11 +379,25 @@ fn to_tool(cmd: Cmd) -> Result<(&'static str, Value), String> {
             ]),
         ),
         Cmd::Show { issue } => ("task_issue_show", json!({ "issue": issue })),
+        Cmd::Reparent {
+            issue,
+            parent,
+            detach,
+        } => {
+            if parent.is_none() && !detach {
+                return Err("give a parent key, or --detach".into());
+            }
+            (
+                "task_issue_reparent",
+                json!({ "issue": issue, "parent": parent }),
+            )
+        }
         Cmd::Update {
             issue,
             title,
             description,
             priority,
+            kind,
             estimate,
             assignee,
             milestone,
@@ -381,6 +414,7 @@ fn to_tool(cmd: Cmd) -> Result<(&'static str, Value), String> {
                 ("title", os(title)),
                 ("description", os(description)),
                 ("priority", os(priority)),
+                ("kind", os(kind)),
                 (
                     "estimate",
                     clearable(estimate.map(|e| json!(e)), clear_estimate),
@@ -794,12 +828,32 @@ mod tests {
     }
 
     #[test]
+    fn reparent_needs_a_parent_or_detach() {
+        let r = |parent: Option<&str>, detach: bool| {
+            to_tool(Cmd::Reparent {
+                issue: "BC-7".into(),
+                parent: parent.map(str::to_string),
+                detach,
+            })
+        };
+        let (name, a) = r(Some("BC-3"), false).unwrap();
+        assert_eq!(
+            (name, a["parent"].as_str()),
+            ("task_issue_reparent", Some("BC-3"))
+        );
+        let (_, a) = r(None, true).unwrap();
+        assert!(a["parent"].is_null(), "--detach sends null");
+        assert!(r(None, false).is_err());
+    }
+
+    #[test]
     fn clear_flags_emit_null() {
         let cmd = Cmd::Update {
             issue: "BC-1".into(),
             title: None,
             description: None,
             priority: None,
+            kind: None,
             estimate: Some(3),
             assignee: None,
             milestone: None,

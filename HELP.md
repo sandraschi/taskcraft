@@ -40,6 +40,19 @@ taskcraft milestone list --project BC       # issues and points done / total
 taskcraft milestone close BC "v1.0 Release"
 ```
 
+## Epics, stories and subtasks
+
+```powershell
+taskcraft new BC "GUI polish" --kind epic            # BC-11
+taskcraft new BC "Table alignment" --kind story --parent BC-11 --estimate 3
+taskcraft reparent BC-7 BC-11                        # move an existing issue under the epic
+taskcraft reparent BC-7 --detach
+taskcraft show BC-11                                 # children + rollup (points, percent done)
+```
+
+- Kinds: epic, story, task (default), bug, subtask. An epic has no parent, nothing goes under a subtask, parent and child share a project, and cycles are refused.
+- The rollup counts every descendant, skips canceled issues, and measures progress in points (or in issues when nothing has points).
+
 ## Comments, mentions and watchers
 
 ```powershell

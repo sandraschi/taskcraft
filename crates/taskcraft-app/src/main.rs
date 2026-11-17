@@ -18,7 +18,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use taskcraft_core::{dispatch, tools, Command, Confinement, Ctx};
 use taskcraft_store::{
-    Issue, IssueDetail, IssueFilter, IssuePatch, Milestone, NewIssue, Priority, Project,
+    Issue, IssueDetail, IssueFilter, IssueKind, IssuePatch, Milestone, NewIssue, Priority, Project,
     RelationKind, Status, Tracker,
 };
 
@@ -66,6 +66,15 @@ fn status_tone(s: Status) -> Tone {
     }
 }
 
+fn kind_tone(k: IssueKind) -> Tone {
+    match k {
+        IssueKind::Epic => Tone::Accent,
+        IssueKind::Story => Tone::Info,
+        IssueKind::Bug => Tone::Danger,
+        IssueKind::Task | IssueKind::Subtask => Tone::Neutral,
+    }
+}
+
 fn priority_tone(p: Priority) -> Tone {
     match p {
         Priority::Urgent => Tone::Danger,
@@ -108,6 +117,7 @@ struct App {
     new_rel_kind: RelationKind,
     new_rel_target: String,
     new_comment: String,
+    new_parent: String,
 
     // Board filter and swimlanes
     filter_text: String,
@@ -178,6 +188,7 @@ impl App {
             new_rel_kind: RelationKind::Blocks,
             new_rel_target: String::new(),
             new_comment: String::new(),
+            new_parent: String::new(),
 
             filter_text: String::new(),
             filter_priority: None,
@@ -430,6 +441,7 @@ impl App {
             milestone,
             due_date,
             labels,
+            ..NewIssue::default()
         };
 
         match dispatch(&mut self.ctx, Command::IssueCreate(new_iss)) {
@@ -595,6 +607,29 @@ impl App {
             Err(e) => {
                 self.toasts.err(format!("Relation failed: {e}"));
             }
+        }
+    }
+
+    /// Put `issue` under `parent`, or detach it with `None`.
+    fn execute_reparent(&mut self, issue: &str, parent: Option<String>) {
+        let label = parent.clone();
+        match dispatch(
+            &mut self.ctx,
+            Command::IssueReparent {
+                issue: issue.to_string(),
+                parent,
+            },
+        ) {
+            Ok(_) => {
+                self.new_parent.clear();
+                self.toasts.ok(match label {
+                    Some(p) => format!("{issue} is now under {p}"),
+                    None => format!("{issue} detached from its parent"),
+                });
+                self.reload_active_data();
+                self.load_issue_detail(issue);
+            }
+            Err(e) => self.toasts.err(format!("Reparent failed: {e}")),
         }
     }
 
@@ -1641,6 +1676,8 @@ impl App {
         let mut remove_label = None;
         let mut post_comment = false;
         let mut delete_comment: Option<(i64, i64)> = None;
+        let mut set_kind: Option<IssueKind> = None;
+        let mut reparent: Option<Option<String>> = None;
 
         ui.horizontal(|ui| {
             ui.heading(
@@ -1648,6 +1685,7 @@ impl App {
                     .family(egui::FontFamily::Monospace)
                     .strong(),
             );
+            widgets::pill(ui, issue.kind.as_str(), kind_tone(issue.kind));
             widgets::pill(ui, issue.status.as_str(), status_tone(issue.status));
             widgets::pill(ui, issue.priority.as_str(), priority_tone(issue.priority));
 
@@ -1958,6 +1996,86 @@ impl App {
             ui.add_space(12.0);
             ui.separator();
 
+            // Hierarchy (Tier 5): kind, parent, children, rollup.
+            ui.heading("Hierarchy");
+            ui.horizontal(|ui| {
+                ui.label("Kind:");
+                egui::ComboBox::from_id_salt("issue_kind")
+                    .selected_text(issue.kind.as_str())
+                    .show_ui(ui, |ui| {
+                        for k in IssueKind::ALL {
+                            if ui.selectable_label(issue.kind == *k, k.as_str()).clicked()
+                                && issue.kind != *k
+                            {
+                                set_kind = Some(*k);
+                            }
+                        }
+                    });
+            });
+            ui.horizontal(|ui| {
+                ui.label("Parent:");
+                match &issue.parent {
+                    Some(p) => {
+                        if ui.link(p).clicked() {
+                            select_key = Some(p.clone());
+                        }
+                        if ui.small_button("Detach").clicked() {
+                            reparent = Some(None);
+                        }
+                    }
+                    None => {
+                        ui.label(RichText::new("none").color(t.text_weak));
+                    }
+                }
+                if issue.kind != IssueKind::Epic {
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.new_parent)
+                            .hint_text("Parent KEY-n")
+                            .desired_width(90.0),
+                    );
+                    if ui
+                        .add_enabled(
+                            !self.new_parent.trim().is_empty(),
+                            egui::Button::new("Set Parent"),
+                        )
+                        .clicked()
+                    {
+                        reparent = Some(Some(self.new_parent.trim().to_string()));
+                    }
+                }
+            });
+            if !detail.children.is_empty() {
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("Children:");
+                    for c in &detail.children {
+                        if ui.link(c).clicked() {
+                            select_key = Some(c.clone());
+                        }
+                    }
+                });
+            }
+            if let Some(r) = &detail.rollup {
+                let text = if r.basis == "points" {
+                    format!(
+                        "{} of {} points done ({:.0}%) across {} issues",
+                        r.points_done, r.points, r.percent_done, r.issues
+                    )
+                } else {
+                    format!(
+                        "{} of {} issues done ({:.0}%)",
+                        r.issues_done, r.issues, r.percent_done
+                    )
+                };
+                ui.add(
+                    ProgressBar::new((r.percent_done / 100.0) as f32)
+                        .desired_width(ui.available_width())
+                        .text(text),
+                );
+            }
+
+            ui.add_space(12.0);
+            ui.separator();
+
             // Blockers & Relations (CRITICAL FEATURE!)
             ui.heading("🔗 Relations & Dependencies");
 
@@ -2217,6 +2335,18 @@ impl App {
         }
         if post_comment {
             self.execute_add_comment(&issue.key);
+        }
+        if let Some(k) = set_kind {
+            self.execute_update_issue_patch(
+                &issue.key,
+                IssuePatch {
+                    kind: Some(k),
+                    ..Default::default()
+                },
+            );
+        }
+        if let Some(p) = reparent {
+            self.execute_reparent(&issue.key, p);
         }
         if let Some((id, version)) = delete_comment {
             self.execute_delete_comment(&issue.key, id, version);
@@ -3168,6 +3298,45 @@ mod tests {
         // The guard is live: a character no font ships is reported.
         let missing = craft_biz_ui::menu::missing_glyphs(&ctx, "ok \u{10fffd}");
         assert_eq!(missing, vec!['\u{10fffd}']);
+    }
+
+    /// Inspector hierarchy: reparent through the app path, then detach.
+    #[test]
+    fn inspector_reparents_and_shows_rollup() {
+        let mut app = memory_app();
+        app.new_project_key = "TC".to_string();
+        app.new_project_name = "Test".to_string();
+        app.execute_create_project();
+        for title in ["Epic", "Story"] {
+            app.new_issue_title = title.to_string();
+            app.new_issue_estimate = "5".to_string();
+            app.execute_create_issue();
+        }
+        app.execute_update_issue_patch(
+            "TC-1",
+            IssuePatch {
+                kind: Some(IssueKind::Epic),
+                ..Default::default()
+            },
+        );
+        app.execute_reparent("TC-2", Some("TC-1".into()));
+        app.load_issue_detail("TC-1");
+        let d = app.selected_detail.clone().expect("detail");
+        assert_eq!(d.issue.kind, IssueKind::Epic);
+        assert_eq!(d.children, vec!["TC-2"]);
+        assert_eq!(d.rollup.as_ref().map(|r| r.points), Some(5));
+        // A refused move is a toast, not a change.
+        app.execute_reparent("TC-1", Some("TC-2".into()));
+        assert!(app
+            .toasts
+            .latest()
+            .is_some_and(|(m, _)| m.contains("epic cannot have a parent")));
+        app.execute_reparent("TC-2", None);
+        app.load_issue_detail("TC-1");
+        assert!(app
+            .selected_detail
+            .as_ref()
+            .is_some_and(|d| d.rollup.is_none()));
     }
 
     /// Inspector comment thread: post (with an unknown mention), then delete.

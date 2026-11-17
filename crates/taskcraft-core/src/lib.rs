@@ -12,8 +12,8 @@ use craft_biz::mcp::tool;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use taskcraft_store::{
-    CommitLink, IssueFilter, IssuePatch, NewIssue, Priority, RelationKind, Status, TaskError,
-    Tracker,
+    CommitLink, IssueFilter, IssueKind, IssuePatch, NewIssue, Priority, RelationKind, Status,
+    TaskError, Tracker,
 };
 
 pub const APP: &str = "taskcraft";
@@ -49,6 +49,10 @@ pub enum Command {
         issue: String,
         status: Status,
         force: bool,
+    },
+    IssueReparent {
+        issue: String,
+        parent: Option<String>,
     },
     RelationAdd {
         source: String,
@@ -166,6 +170,11 @@ fn labels(a: &Value) -> Result<Option<Vec<String>>, String> {
         _ => Err("labels must be an array of strings".into()),
     }
 }
+fn kind(a: &Value) -> Result<Option<IssueKind>, String> {
+    opt_s(a, "kind")
+        .map(|k| IssueKind::parse(&k).map_err(e))
+        .transpose()
+}
 fn priority(a: &Value) -> Result<Option<Priority>, String> {
     opt_s(a, "priority")
         .map(|p| Priority::parse(&p).map_err(e))
@@ -215,6 +224,8 @@ impl Command {
                     .map(|v| Status::parse(&v).map_err(e))
                     .transpose()?,
                 priority: priority(a)?,
+                kind: kind(a)?,
+                parent: opt_s(a, "parent"),
                 estimate: a
                     .get("estimate")
                     .filter(|v| !v.is_null())
@@ -259,6 +270,7 @@ impl Command {
                         .get("description")
                         .and_then(Value::as_str)
                         .map(str::to_string),
+                    kind: kind(a)?,
                     priority: priority(a)?,
                     estimate: tri(a, "estimate", estimate)?,
                     assignee: tri(a, "assignee", |v| {
@@ -283,6 +295,16 @@ impl Command {
                 issue: s(a, "issue")?.into(),
                 status: Status::parse(s(a, "status")?).map_err(e)?,
                 force: a.get("force").and_then(Value::as_bool).unwrap_or(false),
+            },
+            "task_issue_reparent" => Command::IssueReparent {
+                issue: s(a, "issue")?.into(),
+                parent: match a.get("parent") {
+                    None => return Err("missing argument \"parent\" (null detaches)".into()),
+                    Some(Value::Null) => None,
+                    Some(Value::String(p)) if p.trim().is_empty() => None,
+                    Some(Value::String(p)) => Some(p.clone()),
+                    Some(_) => return Err("parent must be an issue key or null".into()),
+                },
             },
             "task_relation_add" | "task_relation_remove" => {
                 let source = s(a, "source")?.to_string();
@@ -399,6 +421,14 @@ pub fn dispatch(ctx: &mut Ctx, cmd: Command) -> Result<Value, String> {
             status,
             force,
         } => to_json(&t.move_issue(&issue, status, force, &actor).map_err(e)?),
+        Command::IssueReparent { issue, parent } => {
+            let i = t.set_parent(&issue, parent.as_deref(), &actor).map_err(e)?;
+            let parent_rollup = match &i.parent {
+                Some(p) => to_json(&t.rollup(t.resolve(p).map_err(e)?).map_err(e)?)?,
+                None => Value::Null,
+            };
+            Ok(json!({ "issue": to_json(&i)?, "parent_rollup": parent_rollup }))
+        }
         Command::RelationAdd {
             source,
             kind,
@@ -805,6 +835,7 @@ pub fn demo_seed(t: &mut Tracker, actor: &str) -> Result<Value, String> {
                 milestone: (!ms.is_empty()).then(|| ms.to_string()),
                 due_date: None,
                 labels: labels.iter().map(|l| l.to_string()).collect(),
+                ..NewIssue::default()
             },
             actor,
         )
@@ -827,16 +858,18 @@ pub fn tools() -> Vec<Value> {
     let status = json!({ "type": "string", "enum": ["backlog", "todo", "in_progress", "in_review", "done", "canceled"] });
     let prio = json!({ "type": "string", "enum": ["low", "medium", "high", "urgent"] });
     let kind = json!({ "type": "string", "enum": ["blocks", "relates_to", "duplicates"] });
+    let ikind = json!({ "type": "string", "enum": ["epic", "story", "task", "bug", "subtask"] });
     let date = json!({ "type": "string", "description": "DD.MM.YYYY or YYYY-MM-DD" });
     let labels = json!({ "type": "array", "items": { "type": "string" } });
     vec![
         tool("task_status", "Tracker status: counts (open, in progress, urgent, overdue), projects, demo flag.", json!({}), &[]),
         tool("task_project_create", "Create a project with a 2-10 char key (issues become KEY-n). Optional repo_path enables git sync.", json!({ "key": {"type":"string"}, "name": {"type":"string"}, "repo_path": {"type":"string"} }), &["key", "name"]),
         tool("task_project_list", "List projects.", json!({}), &[]),
-        tool("task_issue_create", "Create an issue.", json!({ "project": {"type":"string"}, "title": {"type":"string"}, "description": {"type":"string"}, "status": status, "priority": prio, "estimate": {"type":"integer","description":"story points 0-1000"}, "assignee": {"type":"string"}, "milestone": {"type":"string"}, "due_date": date, "labels": labels }), &["project", "title"]),
+        tool("task_issue_create", "Create an issue. kind defaults to task; parent puts it under an epic, story, task or bug of the same project (not under a subtask; an epic has no parent).", json!({ "project": {"type":"string"}, "title": {"type":"string"}, "description": {"type":"string"}, "status": status, "priority": prio, "kind": ikind, "parent": issue, "estimate": {"type":"integer","description":"story points 0-1000"}, "assignee": {"type":"string"}, "milestone": {"type":"string"}, "due_date": date, "labels": labels }), &["project", "title"]),
         tool("task_issue_list", "List issues, urgent first. Finished issues are hidden unless include_finished or an explicit status filter.", json!({ "project": {"type":"string"}, "status": {"type":"string","description":"comma list, e.g. todo,in_progress"}, "priority": prio, "label": {"type":"string"}, "milestone": {"type":"string"}, "text": {"type":"string"}, "include_finished": {"type":"boolean"}, "limit": {"type":"integer"} }), &[]),
-        tool("task_issue_show", "One issue with relations, open blockers, linked commits and full history.", json!({ "issue": issue }), &["issue"]),
-        tool("task_issue_update", "Change fields. Pass null to clear estimate/assignee/milestone/due_date. labels replaces the set.", json!({ "issue": issue, "title": {"type":"string"}, "description": {"type":"string"}, "priority": prio, "estimate": {"type":["integer","null"]}, "assignee": {"type":["string","null"]}, "milestone": {"type":["string","null"]}, "due_date": {"type":["string","null"]}, "labels": labels }), &["issue"]),
+        tool("task_issue_show", "One issue with relations, open blockers, linked commits, children, rollup (points and percent done over all descendants, canceled excluded), comments, watchers and full history.", json!({ "issue": issue }), &["issue"]),
+        tool("task_issue_reparent", "Put an issue under a parent in the same project, or detach it with parent=null. Refused: cycles, an epic with a parent, anything under a subtask, cross-project parents.", json!({ "issue": issue, "parent": {"type":["string","null"],"description":"Parent key like BC-3, or null"} }), &["issue", "parent"]),
+        tool("task_issue_update", "Change fields. Pass null to clear estimate/assignee/milestone/due_date. labels replaces the set. Changing kind to epic needs no parent; to subtask needs no children.", json!({ "issue": issue, "title": {"type":"string"}, "description": {"type":"string"}, "kind": ikind, "priority": prio, "estimate": {"type":["integer","null"]}, "assignee": {"type":["string","null"]}, "milestone": {"type":["string","null"]}, "due_date": {"type":["string","null"]}, "labels": labels }), &["issue"]),
         tool("task_issue_move", "Change status. Moving to in_progress/in_review/done is refused while an open issue blocks it, unless force=true.", json!({ "issue": issue, "status": status, "force": {"type":"boolean"} }), &["issue", "status"]),
         tool("task_relation_add", "Relate two issues. 'blocks' edges may not form a cycle.", json!({ "source": issue, "kind": kind, "target": issue }), &["source", "kind", "target"]),
         tool("task_relation_remove", "Remove a relation.", json!({ "source": issue, "kind": kind, "target": issue }), &["source", "kind", "target"]),
