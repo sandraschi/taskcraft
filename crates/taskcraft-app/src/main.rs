@@ -2621,16 +2621,28 @@ impl App {
             docs: &docs,
             dark: self.settings.dark,
             zoom: self.settings.zoom,
+            lang_de: self.settings.lang != "en",
             file: self.file_items(),
             view: vec![
-                Item::action("Board", "view.board").checked(self.current_view == ActiveView::Board),
-                Item::action("Table", "view.table").checked(self.current_view == ActiveView::Table),
-                Item::action("Milestones", "view.milestones")
-                    .checked(self.current_view == ActiveView::Milestones),
-                Item::action("Git sync", "view.git")
-                    .checked(self.current_view == ActiveView::GitSync),
-                Item::action("History", "view.history")
-                    .checked(self.current_view == ActiveView::History),
+                Item::action(bookend::t(self.settings.lang != "en", "Tafel", "Board"), "view.board")
+                    .checked(self.current_view == ActiveView::Board),
+                Item::action(bookend::t(self.settings.lang != "en", "Tabelle", "Table"), "view.table")
+                    .checked(self.current_view == ActiveView::Table),
+                Item::action(
+                    bookend::t(self.settings.lang != "en", "Meilensteine", "Milestones"),
+                    "view.milestones",
+                )
+                .checked(self.current_view == ActiveView::Milestones),
+                Item::action(
+                    bookend::t(self.settings.lang != "en", "Git-Abgleich", "Git sync"),
+                    "view.git",
+                )
+                .checked(self.current_view == ActiveView::GitSync),
+                Item::action(
+                    bookend::t(self.settings.lang != "en", "Verlauf", "History"),
+                    "view.history",
+                )
+                .checked(self.current_view == ActiveView::History),
             ],
             middle: self.middle_menus(),
         };
@@ -2641,6 +2653,9 @@ impl App {
         if let Some(zoom) = change.zoom {
             self.settings.zoom = zoom;
         }
+        if let Some(lang_de) = change.lang_de {
+            self.settings.lang = if lang_de { "de" } else { "en" }.into();
+        }
         if let Some(id) = change.action.as_deref() {
             self.menu_action(id, true);
         }
@@ -2649,17 +2664,28 @@ impl App {
     /// File items above Quit.
     fn file_items(&self) -> Vec<Item> {
         let cmd = egui::Modifiers::COMMAND;
+        let de = self.settings.lang != "en";
         vec![
-            Item::action("New Project...", "file.new_project")
-                .key(cmd, egui::Key::N)
-                .key_text("Ctrl+N"),
-            Item::action("Export Issues as CSV...", "file.export_csv")
-                .key(cmd, egui::Key::E)
-                .key_text("Ctrl+E")
-                .enabled(self.selected_project.is_some())
-                .hint("Every issue of the current project, semicolon-separated for Excel."),
+            Item::action(
+                bookend::t(de, "Neues Projekt...", "New Project..."),
+                "file.new_project",
+            )
+            .key(cmd, egui::Key::N)
+            .key_text("Ctrl+N"),
+            Item::action(
+                bookend::t(de, "Vorgänge als CSV exportieren...", "Export Issues as CSV..."),
+                "file.export_csv",
+            )
+            .key(cmd, egui::Key::E)
+            .key_text("Ctrl+E")
+            .enabled(self.selected_project.is_some())
+            .hint(bookend::t(
+                de,
+                "Alle Vorgänge des aktuellen Projekts, Semikolon für Excel.",
+                "Every issue of the current project, semicolon-separated for Excel.",
+            )),
             Item::sep(),
-            Item::action("Refresh", "app.refresh")
+            Item::action(bookend::t(de, "Aktualisieren", "Refresh"), "app.refresh")
                 .key(egui::Modifiers::NONE, egui::Key::F5)
                 .key_text("F5"),
         ]
@@ -2670,18 +2696,30 @@ impl App {
         let cmd_shift = egui::Modifiers::COMMAND | egui::Modifiers::SHIFT;
         let project = self.selected_project.is_some();
         let issue = self.selected_issue_key.is_some();
-        let pick_issue = "Select an issue first.";
+        let de = self.settings.lang != "en";
+        let pick_issue = bookend::t(de, "Zuerst einen Vorgang wählen.", "Select an issue first.");
         let insert = Menu::new(
-            "Insert",
+            bookend::t(de, "Einfügen", "Insert"),
             vec![
-                Item::action("New Issue...", "insert.issue")
+                Item::action(bookend::t(de, "Neuer Vorgang...", "New Issue..."), "insert.issue")
                     .key(cmd_shift, egui::Key::I)
                     .key_text("Ctrl+Shift+I")
                     .enabled(project),
-                Item::action("New Milestone...", "insert.milestone").enabled(project),
-                Item::action("Relation from Selected Issue...", "insert.relation")
-                    .enabled(issue)
-                    .hint(pick_issue),
+                Item::action(
+                    bookend::t(de, "Neuer Meilenstein...", "New Milestone..."),
+                    "insert.milestone",
+                )
+                .enabled(project),
+                Item::action(
+                    bookend::t(
+                        de,
+                        "Beziehung vom gewählten Vorgang...",
+                        "Relation from Selected Issue...",
+                    ),
+                    "insert.relation",
+                )
+                .enabled(issue)
+                .hint(pick_issue),
             ],
         );
         let moves = Status::ALL
@@ -2698,28 +2736,46 @@ impl App {
             })
             .collect();
         let modify = Menu::new(
-            "Modify",
+            bookend::t(de, "Ändern", "Modify"),
             vec![
-                Item::sub("Move To", moves).enabled(issue),
-                Item::sub("Priority", priorities).enabled(issue),
-                Item::action("Edit Fields...", "modify.edit")
+                Item::sub(bookend::t(de, "Verschieben nach", "Move To"), moves).enabled(issue),
+                Item::sub(bookend::t(de, "Priorität", "Priority"), priorities).enabled(issue),
+                Item::action(bookend::t(de, "Felder bearbeiten...", "Edit Fields..."), "modify.edit")
                     .enabled(issue)
                     .hint(pick_issue),
-                Item::action("Open in Inspector", "modify.inspect")
-                    .enabled(issue)
-                    .hint(pick_issue),
+                Item::action(
+                    bookend::t(de, "Im Inspektor öffnen", "Open in Inspector"),
+                    "modify.inspect",
+                )
+                .enabled(issue)
+                .hint(pick_issue),
             ],
         );
         let commands = Menu::new(
-            "Commands",
+            bookend::t(de, "Befehle", "Commands"),
             vec![
-                Item::action("Run Git Sync", "cmd.git_sync").enabled(project),
-                Item::action("Drain Cross-App Inbox", "cmd.inbox_drain"),
+                Item::action(
+                    bookend::t(de, "Git-Abgleich starten", "Run Git Sync"),
+                    "cmd.git_sync",
+                )
+                .enabled(project),
+                Item::action(
+                    bookend::t(de, "Eingang abholen", "Drain Cross-App Inbox"),
+                    "cmd.inbox_drain",
+                ),
                 Item::sep(),
-                Item::action("Tool Palette...", "cmd.palette").key_text("Ctrl+K"),
-                Item::action("Seed Demo Data", "cmd.demo_seed")
+                Item::action(
+                    bookend::t(de, "Werkzeugpalette...", "Tool Palette..."),
+                    "cmd.palette",
+                )
+                .key_text("Ctrl+K"),
+                Item::action(bookend::t(de, "Demo-Daten laden", "Seed Demo Data"), "cmd.demo_seed")
                     .enabled(self.projects.is_empty())
-                    .hint("Only on an empty database."),
+                    .hint(bookend::t(
+                        de,
+                        "Nur bei leerer Datenbank.",
+                        "Only on an empty database.",
+                    )),
             ],
         );
         vec![insert, modify, commands]
@@ -3052,6 +3108,7 @@ fn smoke_menus() -> Result<(), String> {
         docs: &[],
         dark: true,
         zoom: 1.0,
+        lang_de: false,
         file: app.file_items(),
         view: Vec::new(),
         middle: app.middle_menus(),
@@ -3284,6 +3341,7 @@ mod tests {
             docs: &[],
             dark: true,
             zoom: 1.0,
+            lang_de: false,
             file: app.file_items(),
             view: Vec::new(),
             middle: app.middle_menus(),
