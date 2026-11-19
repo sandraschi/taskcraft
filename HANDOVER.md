@@ -59,6 +59,7 @@ Estimates (AI-assisted): Tiers 5-9 about 9-14 days, Tier 10 about 2-3 days.
 
 ## 5. Immediate next steps (in order)
 
+0. **Next agent: start with [docs/HANDOVER_TIER5.md](docs/HANDOVER_TIER5.md)** (2026-11-19). It lists a possible test breakage from the bilingual-menu commit `9e9db59` to check first, then the remaining Tier 5 steps with file locations and patterns.
 1. Tier 5 features on the v2 tables. Done: migration runner and schema v2 (2026-11-15), comments with mentions and watchers (criteria 2-4, 2026-11-16), hierarchy and rollup (6-7, 2026-11-17). Next: attachments (5), custom fields (8), templates (9), saved views (10), rest of the UI (11). New schema changes go into `crates/taskcraft-store/src/migrate.rs` as v3, v4, ...; never edit `SCHEMA_V1` or `tests/fixtures/v1.db`.
 2. Tier 4b can go in parallel once craft-ai has `craft-skills`, the `complete()` / `chat()` fixes and `craft-ai-ui` (plan: `craft-ai/docs/CHAT_AND_SKILLS.md`). Write the four skills early: they help agents even before the chat exists.
 3. Tier 5 item 1: migration runner + v1 fixture DB + tests (PM_SPEC section 1).
